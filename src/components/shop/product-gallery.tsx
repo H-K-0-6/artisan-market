@@ -12,7 +12,7 @@ export function ProductGallery({ images, title }: { images: { id: string; url: s
     <div className="grid gap-3">
       <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
         {current ? (
-          <Image src={current.url} alt={title} fill priority sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+          <Image src={current.url} alt={title} fill loading="eager" fetchPriority="high" sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
         ) : (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">No photo</div>
         )}
