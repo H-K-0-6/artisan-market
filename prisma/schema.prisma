@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Money is always stored as integer cents.
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  HIDDEN
+  ARCHIVED
+}
+
+enum AuctionStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  ENDED
+  PAID
+  UNSOLD
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum OrderSource {
+  CART
+  AUCTION
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID_OUT
+}
+
+enum NotificationType {
+  OUTBID
+  AUCTION_WON
+  AUCTION_ENDED
+  ORDER_PAID
+  ORDER_SHIPPED
+  LISTING_HIDDEN
+  SYSTEM
+}
+
+// ---------- Better Auth (core + admin plugin fields) ----------
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("buyer")
+  banned        Boolean?  @default(false)
+  banReason     String?
+  banExpires    DateTime?
+
+  sessions      Session[]
+  accounts      Account[]
+  artisan       ArtisanProfile?
+  bids          Bid[]
+  highBids      Auction[]      @relation("HighBidder")
+  wonAuctions   Auction[]      @relation("Winner")
+  cart          Cart?
+  orders        Order[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------- Shops & catalog ----------
+
+model ArtisanProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName      String
+  slug          String   @unique
+  bio           String?
+  avatarUrl     String?
+  commissionBps Int      @default(1000)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products   Product[]
+  auctions   Auction[]
+  orderItems OrderItem[]
+}
+
+model Category {
+  id       String     @id @default(cuid())
+  name     String
+  slug     String     @unique
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+}
+
+model Product {
+  id           String         @id @default(cuid())
+  artisanId    String
+  artisan      ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     Category?      @relation(fields: [categoryId], references: [id])
+  title        String
+  slug         String         @unique
+  description  String
+  priceCents   Int
+  stock        Int            @default(0)
+  status       ProductStatus  @default(DRAFT)
+  hiddenReason String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  images     ProductImage[]
+  auctions   Auction[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([status, categoryId])
+  @@index([artisanId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  key       String  @unique
+  url       String
+  position  Int     @default(0)
+
+  @@index([productId, position])
+}
+
+// ---------- Auctions ----------
+
+model Auction {
+  id                String         @id @default(cuid())
+  productId         String
+  product           Product        @relation(fields: [productId], references: [id])
+  artisanId         String
+  artisan           ArtisanProfile @relation(fields: [artisanId], references: [id])
+  status            AuctionStatus  @default(DRAFT)
+  startPriceCents   Int
+  minIncrementCents Int            @default(100)
+  reservePriceCents Int?
+  reserveMet        Boolean        @default(false)
+  currentPriceCents Int?
+  highBidderId      String?
+  highBidder        User?          @relation("HighBidder", fields: [highBidderId], references: [id])
+  bidCount          Int            @default(0)
+  startsAt          DateTime
+  endsAt            DateTime
+  originalEndsAt    DateTime
+  endedAt           DateTime?
+  winnerId          String?
+  winner            User?          @relation("Winner", fields: [winnerId], references: [id])
+  cancelledReason   String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  bids  Bid[]
+  order Order?
+
+  @@index([status, endsAt])
+  @@index([status, startsAt])
+  @@index([artisanId])
+}
+
+model Bid {
+  id          String   @id @default(cuid())
+  auctionId   String
+  auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId    String
+  bidder      User     @relation(fields: [bidderId], references: [id])
+  amountCents Int
+  createdAt   DateTime @default(now())
+
+  @@index([auctionId, amountCents(sort: Desc)])
+  @@index([bidderId])
+}
+
+// ---------- Cart & orders ----------
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  qty       Int
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id                      String      @id @default(cuid())
+  buyerId                 String
+  buyer                   User        @relation(fields: [buyerId], references: [id])
+  source                  OrderSource
+  status                  OrderStatus @default(PENDING)
+  auctionId               String?     @unique
+  auction                 Auction?    @relation(fields: [auctionId], references: [id])
+  subtotalCents           Int
+  commissionCents         Int
+  totalCents              Int
+  stripeCheckoutSessionId String?     @unique
+  stripePaymentIntentId   String?
+  payDeadline             DateTime?
+  paidAt                  DateTime?
+  shippingAddress         Json?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([buyerId, status])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id             String         @id @default(cuid())
+  orderId        String
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product        @relation(fields: [productId], references: [id])
+  artisanId      String
+  artisan        ArtisanProfile @relation(fields: [artisanId], references: [id])
+  titleSnapshot  String
+  unitPriceCents Int
+  qty            Int
+  shippedAt      DateTime?
+  trackingNo     String?
+  payoutStatus   PayoutStatus   @default(PENDING)
+
+  @@index([artisanId])
+  @@index([orderId])
+}
+
+// ---------- Notifications, webhooks, audit ----------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+model ProcessedStripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  targetType String
+  targetId   String
+  reason     String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
