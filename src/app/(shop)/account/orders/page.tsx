@@ -15,7 +15,7 @@ export default async function MyOrdersPage() {
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">My orders</h1>
+      <h2 className="text-lg font-semibold">Orders</h2>
       {orders.length === 0 ? (
         <p className="text-muted-foreground">
           No orders yet.{" "}
