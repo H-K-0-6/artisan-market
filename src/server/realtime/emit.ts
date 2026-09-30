@@ -14,6 +14,8 @@ export type ServerEvents = {
     bidCount: number;
     reserveMet: boolean;
     serverNow: number;
+    /** Added by the auctions workstream: lets SCHEDULED rooms count down to the start. */
+    startsAt?: string;
   };
   "auction:started": { auctionId: string; endsAt: string; serverNow: number };
   "bid:placed": {
@@ -32,6 +34,12 @@ export type ServerEvents = {
   "auction:won": { auctionId: string; title: string; amountCents: number; orderId: string };
   notification: { id: string; type: string; title: string; body: string; link: string | null; createdAt: string };
   "admin:activity": { kind: string; message: string; at: string };
+};
+
+/** Client -> server events (bids are NOT sent over sockets; see bid.service). */
+export type ClientEvents = {
+  "auction:join": (auctionId: string, ack?: (res: { ok: boolean; error?: string }) => void) => void;
+  "auction:leave": (auctionId: string) => void;
 };
 
 export function emitToAuction<E extends keyof ServerEvents>(auctionId: string, event: E, payload: ServerEvents[E]) {
