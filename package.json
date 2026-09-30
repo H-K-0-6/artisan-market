@@ -13,7 +13,9 @@
     "db:studio": "prisma studio",
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "test:int": "vitest run -c vitest.int.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
