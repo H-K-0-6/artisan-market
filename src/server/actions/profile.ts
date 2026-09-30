@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -28,6 +29,16 @@ export async function becomeArtisan(_prev: FormState, formData: FormData): Promi
     prisma.user.update({ where: { id: session.user.id }, data: { role: "artisan" } }),
   ]);
   redirect("/dashboard");
+}
+
+/** Updates the signed-in artisan's shop name and bio (the slug stays stable). */
+export async function updateShop(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("artisan");
+  const parsed = shopSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  await prisma.artisanProfile.update({ where: { userId: session.user.id }, data: parsed.data });
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
 }
 
 async function uniqueShopSlug(name: string) {

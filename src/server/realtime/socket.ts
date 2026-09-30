@@ -1,14 +1,10 @@
 import type { Server, Socket } from "socket.io";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "@/lib/auth";
+import { rooms } from "@/server/realtime/rooms";
 
 export type SocketUser = { id: string; role: string };
 
-export const rooms = {
-  auction: (id: string) => `auction:${id}`,
-  user: (id: string) => `user:${id}`,
-  admin: "admin",
-} as const;
 
 export function registerSocketHandlers(io: Server) {
   // Anonymous sockets are allowed (they can watch auctions); signed-in users get

@@ -6,7 +6,12 @@ import path from "node:path";
 
 const databaseDir = path.resolve(".pgdata");
 const port = Number(process.env.PGPORT ?? 5432);
-const DATABASES = ["artisan", "artisan_test"];
+const DATABASES = [
+  "artisan",
+  "artisan_test",
+  // one dev + test database per parallel worktree
+  ...["shop", "auction", "admin"].flatMap((w) => [`artisan_${w}`, `artisan_${w}_test`]),
+];
 
 const pg = new EmbeddedPostgres({
   databaseDir,
