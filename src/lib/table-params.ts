@@ -54,3 +54,16 @@ export type Paged<T> = { rows: T[]; total: number; page: number; pageSize: numbe
 export function paged<T>(rows: T[], total: number, state: { page: number; pageSize: number }): Paged<T> {
   return { rows, total, page: state.page, pageSize: state.pageSize, pageCount: Math.max(1, Math.ceil(total / state.pageSize)) };
 }
+
+/** What a DataTable needs to render server state (see components/admin/data-table.tsx). */
+export function toView(result: Paged<unknown>, state: TableState, sp: SearchParams) {
+  return {
+    total: result.total,
+    page: result.page,
+    pageSize: result.pageSize,
+    pageCount: result.pageCount,
+    sort: state.sort,
+    dir: state.dir,
+    params: flattenParams(sp),
+  };
+}
