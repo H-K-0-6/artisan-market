@@ -1,0 +1,14 @@
+.git
+node_modules
+.next
+.pgdata
+.env
+.env.*
+!.env.example
+src/generated
+test-results
+playwright-report
+blob-report
+*.log
+.vscode
+.claude

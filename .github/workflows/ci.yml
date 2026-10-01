@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: artisan
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/artisan
+      DATABASE_URL_TEST: postgresql://app:app@localhost:5432/artisan_test
+      DATABASE_URL_E2E: postgresql://app:app@localhost:5432/artisan_e2e
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
+      BETTER_AUTH_URL: http://localhost:3000
+      # Stripe test-mode keys (repository secrets). E2E redirects to real Stripe Checkout.
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      UPLOADTHING_TOKEN: ${{ secrets.UPLOADTHING_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create test database
+        run: PGPASSWORD=app psql -h localhost -U app -d artisan -c "CREATE DATABASE artisan_test"
+      - run: npx tsc --noEmit
+      - run: npx eslint src server.ts tests e2e
+      - run: npm test
+      - run: npm run test:int
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results
+          retention-days: 7
