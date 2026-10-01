@@ -39,7 +39,7 @@ export default async function AuctionRoomPage({ params }: { params: Promise<{ id
         </Link>
         <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
           {auction.product.images[0] && (
-            <Image src={auction.product.images[0].url} alt={auction.product.title} fill priority sizes="(min-width: 768px) 60vw, 100vw" className="object-cover" />
+            <Image src={auction.product.images[0].url} alt={auction.product.title} fill loading="eager" sizes="(min-width: 768px) 60vw, 100vw" className="object-cover" />
           )}
         </div>
         {auction.product.images.length > 1 && (
