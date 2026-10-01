@@ -44,3 +44,8 @@ next-env.d.ts
 /.pgdata
 /src/generated
 !.env.example
+
+# playwright
+/test-results
+/playwright-report
+/blob-report
