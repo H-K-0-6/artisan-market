@@ -45,6 +45,9 @@ export async function startAuction(auctionId: string): Promise<StepResult> {
   }
 
   const { endsAt, title } = rows[0];
+  // Make sure an end job exists even when the sweep (not the start job) started it.
+  // Duplicates are harmless: closeAuction only moves a LIVE auction once.
+  await scheduleAuctionEnd(auctionId, endsAt);
   emitToAuction(auctionId, "auction:started", { auctionId, endsAt: endsAt.toISOString(), serverNow: Date.now() });
   emitToAdmins("auction", `Auction started: ${title}`);
   return { kind: "done" };
