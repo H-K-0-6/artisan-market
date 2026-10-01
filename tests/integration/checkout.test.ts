@@ -180,9 +180,63 @@ describe("checkout and Stripe webhook handling", () => {
     expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("EXPIRED");
     expect((await prisma.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(4);
 
-    // A late completed event cannot resurrect an expired order.
-    await handleStripeEvent(sessionEvent("checkout.session.completed", order.id));
+    // A late completed event cannot resurrect an expired order; the payment is refunded once.
+    const refunds: string[][] = [];
+    const refund = async (pi: string, key: string) => void refunds.push([pi, key]);
+    const late = sessionEvent("checkout.session.completed", order.id, { payment_intent: "pi_late" });
+    expect(await handleStripeEvent(late, { refund })).toMatchObject({ changed: false, refunded: true });
+    expect(await handleStripeEvent(late, { refund })).toEqual({ outcome: "duplicate" });
+    expect(refunds).toEqual([["pi_late", "refund-pi_late"]]);
     expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("EXPIRED");
+    expect(await prisma.notification.count({ where: { userId: buyer.id, title: "Payment refunded" } })).toBe(1);
+  });
+
+  it("refunds a second, different payment for an already-paid order but not a re-delivery of the first", async () => {
+    const { shop } = await makeArtisan();
+    const p = await makeProduct(shop.id);
+    const buyer = await makeUser();
+    await fillCart(buyer.id, p.id, 1);
+    const order = await createOrderFromCart(buyer.id);
+    const refunds: string[] = [];
+    const refund = async (pi: string) => void refunds.push(pi);
+
+    await handleStripeEvent(sessionEvent("checkout.session.completed", order.id, { payment_intent: "pi_first" }), { refund });
+    // Same payment, different event type: not a double charge.
+    await handleStripeEvent(
+      sessionEvent("checkout.session.async_payment_succeeded", order.id, { payment_intent: "pi_first" }),
+      { refund },
+    );
+    expect(refunds).toEqual([]);
+
+    // A second checkout session for the same order was also paid.
+    const second = await handleStripeEvent(
+      sessionEvent("checkout.session.completed", order.id, { id: "cs_test_other", payment_intent: "pi_second" }),
+      { refund },
+    );
+    expect(second).toMatchObject({ changed: false, refunded: true });
+    expect(refunds).toEqual(["pi_second"]);
+    const paid = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(paid.status).toBe("PAID");
+    expect(paid.stripePaymentIntentId).toBe("pi_first");
+  });
+
+  it("reports a failed refund without throwing, so the webhook still returns 200", async () => {
+    const { shop } = await makeArtisan();
+    const p = await makeProduct(shop.id);
+    const buyer = await makeUser();
+    await fillCart(buyer.id, p.id, 1);
+    const order = await createOrderFromCart(buyer.id);
+    await releaseCartOrder(order.id, "CANCELLED");
+
+    const refund = async () => {
+      throw new Error("stripe down");
+    };
+    const res = await handleStripeEvent(
+      sessionEvent("checkout.session.completed", order.id, { payment_intent: "pi_x" }),
+      { refund },
+    );
+    expect(res).toMatchObject({ outcome: "processed", refunded: false });
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("CANCELLED");
   });
 
   it("ignores expiry of AUCTION orders and marks the auction PAID on payment", async () => {

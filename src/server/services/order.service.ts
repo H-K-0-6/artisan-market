@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { commissionCents } from "@/lib/money";
 import type { Prisma } from "@/generated/prisma/client";
-import { createNotification, pushNotifications } from "@/server/services/notification.service";
+import { createNotification, notify, pushNotifications } from "@/server/services/notification.service";
 import { emitToAdmins } from "@/server/realtime/emit";
 
 /** A user-facing failure (bad cart, not enough stock, not allowed...). */
@@ -150,7 +150,18 @@ export async function releaseCartOrder(
 export type StripeEventResult =
   | { outcome: "duplicate" }
   | { outcome: "ignored" }
-  | { outcome: "processed"; orderId?: string; changed: boolean };
+  | { outcome: "processed"; orderId?: string; changed: boolean; refunded?: boolean };
+
+/** Refunds a whole PaymentIntent. Injected so tests don't call Stripe. */
+export type RefundPayment = (paymentIntentId: string, idempotencyKey: string) => Promise<void>;
+
+const stripeRefund: RefundPayment = async (paymentIntentId, idempotencyKey) => {
+  const { stripe } = await import("@/lib/stripe");
+  await stripe.refunds.create(
+    { payment_intent: paymentIntentId, reason: "duplicate", metadata: { reason: "order no longer payable" } },
+    { idempotencyKey },
+  );
+};
 
 const HANDLED = new Set([
   "checkout.session.completed",
@@ -163,7 +174,10 @@ const HANDLED = new Set([
  * the same transaction as the side effects, so a replayed (or concurrently
  * redelivered) event id changes nothing. Socket pushes happen after commit.
  */
-export async function handleStripeEvent(event: Pick<Stripe.Event, "id" | "type" | "data">): Promise<StripeEventResult> {
+export async function handleStripeEvent(
+  event: Pick<Stripe.Event, "id" | "type" | "data">,
+  deps: { refund?: RefundPayment } = {},
+): Promise<StripeEventResult> {
   if (!HANDLED.has(event.type)) return { outcome: "ignored" };
   const session = event.data.object as Stripe.Checkout.Session;
 
@@ -174,7 +188,7 @@ export async function handleStripeEvent(event: Pick<Stripe.Event, "id" | "type" 
       data: [{ id: event.id, type: event.type }],
       skipDuplicates: true,
     });
-    if (count === 0) return { outcome: "duplicate" as const, notifications: [], adminMessage: null };
+    if (count === 0) return { outcome: "duplicate" as const, notifications: [], adminMessage: null, refund: null };
 
     if (event.type === "checkout.session.expired") return onSessionExpired(tx, session);
     return onSessionPaid(tx, session);
@@ -183,7 +197,31 @@ export async function handleStripeEvent(event: Pick<Stripe.Event, "id" | "type" 
   if (result.outcome === "duplicate") return { outcome: "duplicate" };
   pushNotifications(result.notifications);
   if (result.adminMessage) emitToAdmins("order", result.adminMessage);
-  return { outcome: "processed", orderId: result.orderId, changed: result.changed };
+
+  // Money arrived for an order that can no longer be fulfilled: give it back.
+  // This runs after commit (never call Stripe inside a DB transaction). The event is
+  // already recorded, so a failure here is surfaced to admins rather than retried.
+  let refunded: boolean | undefined;
+  if (result.refund) {
+    const { paymentIntentId, orderId, buyerId, reason } = result.refund;
+    try {
+      await (deps.refund ?? stripeRefund)(paymentIntentId, `refund-${paymentIntentId}`);
+      refunded = true;
+      await notify({
+        userId: buyerId,
+        type: "SYSTEM",
+        title: "Payment refunded",
+        body: `We refunded a payment for an order that was ${reason}. You won't be charged.`,
+        link: `/account/orders/${orderId}`,
+      });
+      emitToAdmins("order", `Refunded ${paymentIntentId} for order ${orderId} (${reason})`);
+    } catch (err) {
+      refunded = false;
+      console.error(`[stripe] refund of ${paymentIntentId} for order ${orderId} failed`, err);
+      emitToAdmins("order", `REFUND FAILED for order ${orderId} (${paymentIntentId}); refund it in Stripe`);
+    }
+  }
+  return { outcome: "processed", orderId: result.orderId, changed: result.changed, refunded };
 }
 
 type TxResult = {
@@ -192,6 +230,7 @@ type TxResult = {
   changed: boolean;
   notifications: NotificationRow[];
   adminMessage: string | null;
+  refund: { paymentIntentId: string; orderId: string; buyerId: string; reason: string } | null;
 };
 
 async function findOrderForSession(tx: Tx, session: Stripe.Checkout.Session) {
@@ -205,7 +244,7 @@ async function findOrderForSession(tx: Tx, session: Stripe.Checkout.Session) {
 }
 
 async function onSessionPaid(tx: Tx, session: Stripe.Checkout.Session): Promise<TxResult> {
-  const none: TxResult = { outcome: "processed", changed: false, notifications: [], adminMessage: null };
+  const none: TxResult = { outcome: "processed", changed: false, notifications: [], adminMessage: null, refund: null };
   if (session.payment_status !== "paid") return none; // async methods finish later
 
   const order = await findOrderForSession(tx, session);
@@ -230,8 +269,15 @@ async function onSessionPaid(tx: Tx, session: Stripe.Checkout.Session): Promise<
     },
   });
   if (count === 0) {
-    if (order.status !== "PAID") {
-      console.warn(`[stripe] session ${session.id} paid but order ${order.id} is ${order.status}; needs a refund`);
+    // Either the order is no longer payable (expired/cancelled), or it was already
+    // paid by a different payment (e.g. two open auction sessions both paid).
+    // The same payment arriving again via another event type is not a double charge.
+    const alreadyPaid = ["PAID", "SHIPPED", "DELIVERED", "REFUNDED"].includes(order.status);
+    const samePayment = alreadyPaid && paymentIntentId != null && paymentIntentId === order.stripePaymentIntentId;
+    if (paymentIntentId && !samePayment) {
+      const reason = alreadyPaid ? "already paid" : order.status.toLowerCase();
+      console.warn(`[stripe] session ${session.id} paid but order ${order.id} is ${order.status}; refunding`);
+      return { ...none, orderId: order.id, refund: { paymentIntentId, orderId: order.id, buyerId: order.buyerId, reason } };
     }
     return { ...none, orderId: order.id };
   }
@@ -279,12 +325,13 @@ async function onSessionPaid(tx: Tx, session: Stripe.Checkout.Session): Promise<
     orderId: order.id,
     changed: true,
     notifications,
-    adminMessage: `Order ${order.id} paid ($${total}, ${order.source.toLowerCase()})`,
+    adminMessage: `Order ${order.id} paid (${total}, ${order.source.toLowerCase()})`,
+    refund: null,
   };
 }
 
 async function onSessionExpired(tx: Tx, session: Stripe.Checkout.Session): Promise<TxResult> {
-  const none: TxResult = { outcome: "processed", changed: false, notifications: [], adminMessage: null };
+  const none: TxResult = { outcome: "processed", changed: false, notifications: [], adminMessage: null, refund: null };
   const order = await findOrderForSession(tx, session);
   // AUCTION orders: the winner may open a new session until payDeadline; the
   // auction jobs expire those. CART orders: only the order's current session counts.
