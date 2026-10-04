@@ -10,6 +10,8 @@ Stack: Next.js 16 (App Router) with a custom `server.ts` that also hosts Socket.
 
 ## Run locally
 
+On Windows, double-click **start.bat** (starts the database, app and Stripe forwarding, then opens the browser) and **stop.bat** to shut everything down cleanly. Or by hand:
+
 ```sh
 npm install
 cp .env.example .env           # fill in Stripe test keys and UPLOADTHING_TOKEN

@@ -10,39 +10,41 @@ if not exist "node_modules" (
   echo Installing dependencies, first run only...
   call npm install || goto :fail
 )
+if not exist ".env" (
+  echo Missing .env file. Copy .env.example to .env and fill in your keys.
+  goto :fail
+)
 
-rem --- 1. Database (embedded Postgres on 5432) ---------------------------------
-call :listening 5432
+rem --- 1. Database ---------------------------------------------------------------
+rem A real query, not just "is port 5432 open": a half-dead cluster can hold the port.
+call npx tsx scripts/db.ts check >nul 2>&1
 if errorlevel 1 (
   echo Starting database...
-  start "Artisan Market - database" /min cmd /k "npm run db"
-  call :waitfor 5432 60 || goto :fail
+  start "Artisan Market - database" /min cmd /k "set ARTISAN_WINDOW=db&& npx tsx scripts/db.ts"
+  call :waitdb 90 || goto :fail
 ) else (
   echo Database already running.
 )
 
-rem --- 2. Wait until Postgres accepts connections, then migrate -----------------
-rem The port opens a moment before Postgres is ready (longer after a crash), and the
-rem server exits if its first DB connection fails, so this doubles as a readiness check.
-set /a "_tries=30"
-:migrate
-call npx prisma migrate deploy >nul 2>&1
-if not errorlevel 1 goto :migrated
-set /a "_tries-=1"
-if %_tries% leq 0 (
-  echo Database is not accepting connections. See the database window.
+rem --- 2. Migrations (no-op when up to date) ------------------------------------
+call npx prisma migrate deploy >"%TEMP%\artisan-migrate.log" 2>&1
+if errorlevel 1 (
+  echo Database migrations failed:
+  type "%TEMP%\artisan-migrate.log"
   goto :fail
 )
-call :sleep 2
-goto :migrate
-:migrated
 
 rem --- 3. App server ------------------------------------------------------------
-call :listening %PORT%
+call :apphealthy
 if errorlevel 1 (
-  echo Starting app server...
-  start "Artisan Market - server" cmd /k "npm run dev"
-  call :waitfor %PORT% 120 || goto :fail
+  call :listening %PORT%
+  if not errorlevel 1 (
+    echo Port %PORT% is in use by another program. Close it, or run stop.bat, then try again.
+    goto :fail
+  )
+  echo Starting app server, the first start can take a minute...
+  start "Artisan Market - server" cmd /k "set ARTISAN_WINDOW=server&& npm run dev"
+  call :waitapp 180 || goto :fail
 ) else (
   echo App server already running.
 )
@@ -53,7 +55,7 @@ if not errorlevel 1 (
   tasklist /fi "imagename eq stripe.exe" | find /i "stripe.exe" >nul
   if errorlevel 1 (
     echo Starting Stripe webhook forwarding...
-    start "Artisan Market - Stripe webhooks" /min cmd /k "stripe listen --forward-to localhost:%PORT%/api/webhooks/stripe"
+    start "Artisan Market - Stripe webhooks" /min cmd /k "set ARTISAN_WINDOW=stripe&& stripe listen --forward-to localhost:%PORT%/api/webhooks/stripe"
   )
 )
 
@@ -62,7 +64,7 @@ echo Opening %URL%
 start "" "%URL%"
 echo.
 echo Demo logins (password Password123!): admin@demo.test, artisan@demo.test, buyer@demo.test
-echo To stop: close the "Artisan Market" windows.
+echo To stop everything cleanly, run stop.bat.
 call :sleep 5
 exit /b 0
 
@@ -72,19 +74,38 @@ rem errorlevel 0 if something is listening on port %1
 netstat -ano | findstr /r /c:":%1 .*LISTENING" >nul
 exit /b %errorlevel%
 
-:waitfor
-rem wait up to %2 seconds for port %1
-set /a "_tries=%2/2"
-:waitloop
-call :listening %1
+:apphealthy
+rem errorlevel 0 if this app answers its health check
+curl.exe -s -f -o nul --max-time 5 "%URL%/api/health" >nul 2>&1
+exit /b %errorlevel%
+
+:waitdb
+rem wait up to %1 seconds for the database to answer queries
+set /a "_tries=%1/3"
+:waitdbloop
+call npx tsx scripts/db.ts check >nul 2>&1
 if not errorlevel 1 exit /b 0
 set /a "_tries-=1"
 if %_tries% leq 0 (
-  echo Timed out waiting for port %1.
+  echo The database did not start. See the "Artisan Market - database" window for the error.
   exit /b 1
 )
 call :sleep 2
-goto :waitloop
+goto :waitdbloop
+
+:waitapp
+rem wait up to %1 seconds for the app's health check
+set /a "_tries=%1/3"
+:waitapploop
+call :apphealthy
+if not errorlevel 1 exit /b 0
+set /a "_tries-=1"
+if %_tries% leq 0 (
+  echo The app server did not start. See the "Artisan Market - server" window for the error.
+  exit /b 1
+)
+call :sleep 3
+goto :waitapploop
 
 :sleep
 rem pause %1 seconds (ping works without an interactive console, unlike timeout)
@@ -93,6 +114,6 @@ exit /b 0
 
 :fail
 echo.
-echo Something went wrong. Check the other Artisan Market windows for errors.
+echo Something went wrong (details above).
 pause
 exit /b 1
