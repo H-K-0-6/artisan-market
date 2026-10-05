@@ -2,15 +2,20 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * The mark is a carved printing block: a saffron square with an indigo dye drop,
- * cut slightly off-true like a hand-carved stamp.
+ * The mark is a lot ticket: a saffron ticket with notches on both sides (the same
+ * shape as the auction lot tickets across the site) carrying an indigo "A".
+ * Fixed brand colours, not theme tokens, so it is identical everywhere; the same
+ * drawing is the browser tab icon (src/app/icon.svg).
  */
+export const TICKET_PATH =
+  "M6 5h20a3 3 0 0 1 3 3v5.2a2.8 2.8 0 0 0 0 5.6V24a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-5.2a2.8 2.8 0 0 0 0-5.6V8a3 3 0 0 1 3-3z";
+export const LETTER_A_PATH = "M13.6 8.5h4.8l5 14.5h-4.2l-.9-2.9h-4.6l-.9 2.9H8.6zM16 12.4l-1.4 4.6h2.8z";
+
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden className={cn("size-8 shrink-0", className)}>
-      <path d="M3.5 5.2 Q3.3 3.4 5.2 3.3 L26.9 2.9 Q28.8 2.9 28.8 4.8 L29.1 26.7 Q29.1 28.7 27.1 28.7 L5 29.1 Q3.1 29.1 3.1 27.2 Z" fill="var(--saffron)" />
-      <path d="M16 8.2 C19.6 12.4 21.6 15.2 21.6 18.1 A5.6 5.6 0 0 1 10.4 18.1 C10.4 15.2 12.4 12.4 16 8.2 Z" fill="var(--indigo-deep)" />
-      <circle cx="13.9" cy="18.6" r="1.4" fill="var(--saffron)" opacity="0.9" />
+      <path d={TICKET_PATH} fill="#f3b21b" />
+      <path d={LETTER_A_PATH} fill="#22306b" fillRule="evenodd" />
     </svg>
   );
 }
