@@ -33,7 +33,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
           <Link href="/admin/users" className="text-sm text-muted-foreground hover:underline">
             ← Users
           </Link>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <h1 className="flex items-center gap-2 display text-4xl">
             {user.name} <RoleBadge role={user.role} />
             {user.banned && <Badge variant="destructive">Banned</Badge>}
           </h1>

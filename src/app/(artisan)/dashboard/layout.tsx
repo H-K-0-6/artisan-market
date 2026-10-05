@@ -1,30 +1,22 @@
-import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { requireRolePage } from "@/lib/rbac";
-import { SiteHeader } from "@/components/shop/site-header";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import type { DashboardNavItem } from "@/components/dashboard/dashboard-nav";
 
-const NAV = [
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/products", label: "Products" },
-  { href: "/dashboard/auctions", label: "Auctions" },
-  { href: "/dashboard/orders", label: "Orders" },
-  { href: "/dashboard/shop", label: "Shop profile" },
-] as const;
+const NAV: DashboardNavItem[] = [
+  { href: "/dashboard", label: "Overview", icon: "overview", exact: true },
+  { href: "/dashboard/products", label: "Products", icon: "products" },
+  { href: "/dashboard/auctions", label: "Auctions", icon: "auctions" },
+  { href: "/dashboard/orders", label: "Orders", icon: "orders" },
+  { href: "/dashboard/shop", label: "Shop profile", icon: "shop" },
+];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  await requireRolePage("artisan");
+  const session = await requireRolePage("artisan");
+  const shop = await prisma.artisanProfile.findUnique({ where: { userId: session.user.id }, select: { shopName: true } });
   return (
-    <>
-      <SiteHeader />
-      <div className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-4 py-8 md:grid-cols-[180px_1fr]">
-        <nav className="flex gap-1 text-sm md:flex-col">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="rounded-md px-3 py-2 hover:bg-muted">
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-        <main className="min-w-0">{children}</main>
-      </div>
-    </>
+    <DashboardShell title="Your studio" subtitle={shop?.shopName} items={NAV}>
+      {children}
+    </DashboardShell>
   );
 }

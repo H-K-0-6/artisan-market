@@ -10,7 +10,7 @@ export default async function NewProductPage() {
   const categories = await listCategories();
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">New product</h1>
+      <h1 className="display text-4xl">New product</h1>
       <ProductForm productId={null} categories={categories} />
     </div>
   );

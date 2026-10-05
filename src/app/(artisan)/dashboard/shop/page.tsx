@@ -11,7 +11,7 @@ export default async function ShopProfilePage() {
   return (
     <div className="grid gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">Shop profile</h1>
+        <h1 className="display text-4xl">Shop profile</h1>
         <p className="text-sm text-muted-foreground">
           Public page: <Link href={`/shops/${shop.slug}`} className="underline">/shops/{shop.slug}</Link>
         </p>

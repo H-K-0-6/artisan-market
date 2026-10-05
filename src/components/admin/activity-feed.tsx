@@ -29,7 +29,7 @@ export function ActivityFeed({ initial }: { initial: ServerEvents["admin:activit
   return (
     <div className="grid gap-3">
       <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-        <span className={cn("size-2 rounded-full", connected ? "bg-emerald-500" : "bg-muted-foreground/40")} aria-hidden />
+        <span className={cn("size-2 rounded-full", connected ? "bg-weld" : "bg-muted-foreground/40")} aria-hidden />
         {connected ? "Live" : "Connecting…"}
       </div>
       {items.length === 0 ? (

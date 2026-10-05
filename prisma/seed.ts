@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { prisma } from "../src/lib/db";
 import { auth } from "../src/lib/auth";
 
@@ -34,6 +36,10 @@ const PRODUCTS: { title: string; category: string; price: number; stock: number;
   { title: "Carved Cherry Spoon", category: "woodwork", price: 2600, stock: 15, shop: 1 },
   { title: "Oak Jewelry Box", category: "woodwork", price: 9800, stock: 2, shop: 1 },
 ];
+
+// Demo photos live in public/demo (public-domain / CC0, see credits.json).
+const demoImage = (slug: string) =>
+  existsSync(path.join("public/demo", `${slug}.jpg`)) ? `/demo/${slug}.jpg` : `https://picsum.photos/seed/${slug}/800/800`;
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -84,13 +90,7 @@ async function main() {
         status: "ACTIVE",
         artisanId: shops[p.shop].id,
         categoryId: categories[p.category],
-        images: {
-          create: [0, 1].map((n) => ({
-            key: `seed-${slug}-${n}`,
-            url: `https://picsum.photos/seed/${slug}-${n}/800/800`,
-            position: n,
-          })),
-        },
+        images: { create: [{ key: `seed-${slug}-0`, url: demoImage(slug) }] },
       },
     });
   }
@@ -115,7 +115,7 @@ async function main() {
             status: "ACTIVE",
             artisanId: shops[p.shop].id,
             categoryId: categories[p.cat],
-            images: { create: [{ key: `seed-${slug}-0`, url: `https://picsum.photos/seed/${slug}/800/800` }] },
+            images: { create: [{ key: `seed-${slug}-0`, url: demoImage(slug) }] },
           },
         });
       }),

@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/account/orders", label: "Orders" },
-  { href: "/account/auctions", label: "Auctions" },
+  { href: "/account/auctions", label: "Bids and wins" },
   { href: "/account/notifications", label: "Notifications" },
 ] as const;
 
 export function AccountTabs() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 border-b text-sm" aria-label="Account sections">
+    <nav className="flex gap-6 overflow-x-auto border-b text-[0.95rem]" aria-label="Account sections">
       {TABS.map((t) => {
         const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
         return (
@@ -22,8 +22,8 @@ export function AccountTabs() {
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 transition-colors",
-              active ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              "-mb-px shrink-0 border-b-[3px] pb-3 font-semibold transition-colors",
+              active ? "border-saffron text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}

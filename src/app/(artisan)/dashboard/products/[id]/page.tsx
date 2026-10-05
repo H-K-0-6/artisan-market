@@ -12,7 +12,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Edit product</h1>
+      <h1 className="display text-4xl">Edit product</h1>
       <ProductForm
         productId={product.id}
         categories={categories}

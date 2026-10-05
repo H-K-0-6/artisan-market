@@ -20,7 +20,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Users</h1>
+      <h1 className="display text-4xl">Users</h1>
       <UsersTable rows={result.rows} view={toView(result, state, sp)} />
     </div>
   );

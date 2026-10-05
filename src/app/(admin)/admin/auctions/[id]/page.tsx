@@ -31,7 +31,7 @@ export default async function AdminAuctionPage({ params }: { params: Promise<{ i
           <Link href="/admin/auctions" className="text-sm text-muted-foreground hover:underline">
             ← Auctions
           </Link>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <h1 className="flex items-center gap-2 display text-4xl">
             {a.product.title} <StatusBadge status={a.status} />
           </h1>
           <p className="text-sm text-muted-foreground">

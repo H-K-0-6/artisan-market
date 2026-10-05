@@ -26,7 +26,7 @@ export default async function CheckoutSuccessPage({
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-6">
       <div className="grid gap-2">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="display text-4xl">
           {pending ? "Confirming your payment…" : confirmed ? "Thank you for your order!" : "Order update"}
         </h1>
         <p className="text-muted-foreground">

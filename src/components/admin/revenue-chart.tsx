@@ -12,10 +12,11 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-// Validated categorical pair (blue/orange), stepped separately for light and dark.
+// Brand dyes: indigo (payouts, the bulk) and saffron (commission, the top slice).
+// Far apart in hue and lightness, stepped separately for light and dark.
 const config = {
-  payout: { label: "Artisan payouts", theme: { light: "#2a78d6", dark: "#3987e5" } },
-  commission: { label: "Platform commission", theme: { light: "#eb6834", dark: "#d95926" } },
+  payout: { label: "Artisan payouts", theme: { light: "#22306b", dark: "#9fadf0" } },
+  commission: { label: "Platform commission", theme: { light: "#f3b21b", dark: "#f6bf3c" } },
 } satisfies ChartConfig;
 
 const dayLabel = (iso: string) =>
@@ -42,13 +43,13 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
             <ChartTooltipContent
               labelFormatter={(_, payload) => {
                 const p = payload?.[0]?.payload as (typeof rows)[number] | undefined;
-                return p ? `${dayLabel(p.day)} · gross ${formatCents(p.gross)}` : "";
+                return p ? `${dayLabel(p.day)}: ${formatCents(p.gross)} gross` : "";
               }}
               formatter={(value, name, item) => (
                 <div className="flex w-full items-center gap-2">
                   <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: item.color }} />
                   <span className="text-muted-foreground">{config[name as keyof typeof config]?.label ?? name}</span>
-                  <span className="ml-auto font-mono font-medium tabular-nums text-foreground">{formatCents(Number(value))}</span>
+                  <span className="numeric ml-auto font-semibold text-foreground">{formatCents(Number(value))}</span>
                 </div>
               )}
             />

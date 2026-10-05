@@ -1,22 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Display: Bricolage Grotesque (opsz + wdth axes, set heavy and slightly condensed).
+const display = Bricolage_Grotesque({
+  variable: "--font-display",
+  subsets: ["latin"],
+  axes: ["opsz", "wdth"],
+});
+// Body and UI: Instrument Sans.
+const body = Instrument_Sans({ variable: "--font-body", subsets: ["latin"], axes: ["wdth"] });
 
 export const metadata: Metadata = {
-  title: { default: "Artisan Market", template: "%s · Artisan Market" },
-  description: "Handcrafted goods and live auctions from independent makers.",
+  title: { default: "Artisan Market", template: "%s | Artisan Market" },
+  description: "Handmade goods and live auctions, straight from independent makers.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

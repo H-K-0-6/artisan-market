@@ -48,7 +48,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         <Link href="/admin/orders" className="text-sm text-muted-foreground hover:underline">
           ← Orders
         </Link>
-        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold">
+        <h1 className="flex flex-wrap items-center gap-2 display text-4xl">
           Order <span className="font-mono text-lg">{order.id}</span> <StatusBadge status={order.status} />
           <Badge variant="outline">{order.source === "AUCTION" ? "Auction" : "Cart"}</Badge>
         </h1>

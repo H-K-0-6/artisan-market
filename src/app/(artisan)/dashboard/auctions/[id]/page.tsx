@@ -31,7 +31,7 @@ export default async function MyAuctionPage({ params }: { params: Promise<{ id: 
           {img && <Image src={img.url} alt="" fill sizes="96px" className="object-cover" />}
         </div>
         <div className="grid flex-1 gap-1">
-          <h1 className="text-2xl font-semibold">{a.product.title}</h1>
+          <h1 className="display text-4xl">{a.product.title}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <AuctionStatusBadge status={a.status} />
             <Link href={`/auctions/${a.id}`} className="underline">

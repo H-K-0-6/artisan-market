@@ -19,7 +19,7 @@ export default async function MyAuctionsDashboardPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Auctions</h1>
+        <h1 className="display text-4xl">Auctions</h1>
         <Link href="/dashboard/auctions/new" className={buttonVariants()}>
           New auction
         </Link>

@@ -6,12 +6,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Artisan Market: "Dye pot".
+ * Every colour is a natural dye with one job:
+ *   indigo  - brand, primary actions        saffron - anything live in an auction
+ *   madder  - urgency, outbid, errors        weld    - success: sold, paid, shipped
+ * on undyed-cotton white, with ink (an indigo black) for text.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+  --font-display: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -41,6 +49,21 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* Dye palette */
+  --color-indigo: var(--indigo);
+  --color-indigo-deep: var(--indigo-deep);
+  --color-indigo-soft: var(--indigo-soft);
+  --color-ink: var(--ink);
+  --color-undyed: var(--undyed);
+  --color-saffron: var(--saffron);
+  --color-saffron-soft: var(--saffron-soft);
+  --color-saffron-ink: var(--saffron-ink);
+  --color-madder: var(--madder);
+  --color-madder-soft: var(--madder-soft);
+  --color-weld: var(--weld);
+  --color-weld-soft: var(--weld-soft);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,85 +71,229 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --animate-bid-flash: bid-flash 1.2s ease-out;
+  --animate-live-ring: live-ring 1.8s ease-out infinite;
+  --animate-bump: bump 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+  --animate-ticket-in: ticket-in 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --indigo: #22306b;
+  --indigo-deep: #161f4a;
+  --indigo-soft: #e2e6f3;
+  --ink: #121836;
+  --undyed: #f3f4f8;
+  --saffron: #f3b21b;
+  --saffron-soft: #fdf1cf;
+  --saffron-ink: #3d2a00;
+  --madder: #c8324a;
+  --madder-soft: #f9e3e7;
+  --weld: #3f7d5a;
+  --weld-soft: #e1efe6;
+
+  --background: var(--undyed);
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: #f6f7fb;
+  --secondary: var(--indigo-soft);
+  --secondary-foreground: var(--indigo);
+  --muted: #e8eaf2;
+  --muted-foreground: #565d7c;
+  --accent: var(--indigo-soft);
+  --accent-foreground: var(--indigo);
+  --destructive: var(--madder);
+  --border: #d8dbe8;
+  --input: #c9cddd;
+  --ring: #4a5aa8;
+  --chart-1: var(--indigo);
+  --chart-2: var(--saffron);
+  --chart-3: var(--weld);
+  --chart-4: #7b88c9;
+  --chart-5: var(--madder);
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--indigo);
+  --sidebar-primary-foreground: #f6f7fb;
+  --sidebar-accent: var(--indigo-soft);
+  --sidebar-accent-foreground: var(--indigo);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --indigo: #9fadf0;
+  --indigo-deep: #0b1030;
+  --indigo-soft: #222b5c;
+  --ink: #eef0f9;
+  --undyed: #0f1430;
+  --saffron: #f6bf3c;
+  --saffron-soft: #3b2f10;
+  --saffron-ink: #2a1d00;
+  --madder: #f07186;
+  --madder-soft: #3d1720;
+  --weld: #7cc49a;
+  --weld-soft: #15301f;
+
+  --background: var(--undyed);
+  --foreground: var(--ink);
+  --card: #161c3d;
+  --card-foreground: var(--ink);
+  --popover: #161c3d;
+  --popover-foreground: var(--ink);
+  --primary: var(--indigo);
+  --primary-foreground: #0f1430;
+  --secondary: var(--indigo-soft);
+  --secondary-foreground: #dfe4fb;
+  --muted: #1c2348;
+  --muted-foreground: #a3aacb;
+  --accent: var(--indigo-soft);
+  --accent-foreground: #dfe4fb;
+  --destructive: var(--madder);
+  --border: #2a3263;
+  --input: #343d73;
+  --ring: #9fadf0;
+  --sidebar: #131939;
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--indigo);
+  --sidebar-primary-foreground: #0f1430;
+  --sidebar-accent: var(--indigo-soft);
+  --sidebar-accent-foreground: #dfe4fb;
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    font-feature-settings: "ss01", "cv11";
+  }
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  ::selection {
+    background: var(--saffron);
+    color: var(--saffron-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Display type: Bricolage at a large optical size, slightly condensed. */
+  .display {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 96, "wdth" 86;
+    font-weight: 750;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .numeric {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  /*
+   * The lot ticket: a card with semicircle notches on both long edges, like a
+   * cloakroom or auction-paddle ticket. Used for live bids and lot numbers.
+   */
+  .ticket {
+    --notch: 10px;
+    --notch-at: 62%;
+    -webkit-mask:
+      radial-gradient(circle var(--notch) at 0 var(--notch-at), transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% var(--notch-at), transparent 98%, #000) right / 51% 100% no-repeat;
+    mask:
+      radial-gradient(circle var(--notch) at 0 var(--notch-at), transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% var(--notch-at), transparent 98%, #000) right / 51% 100% no-repeat;
+  }
+  .ticket-perforation {
+    background-image: radial-gradient(circle, currentColor 1.2px, transparent 1.6px);
+    background-size: 8px 3px;
+    background-repeat: repeat-x;
+    background-position: center;
+    height: 3px;
+    opacity: 0.35;
+  }
+
+  /*
+   * Hand-printed texture for indigo surfaces (subtle resist-dye dots). Fixed
+   * values, not tokens: these surfaces are indigo in both themes, and the header
+   * scopes `.dark` (which remaps --indigo to a light tint).
+   */
+  .indigo-cloth {
+    background-color: #161f4a;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.06) 1px, transparent 0),
+      linear-gradient(180deg, #22306b 0%, #161f4a 100%);
+    background-size: 14px 14px, 100% 100%;
+  }
+}
+
+@keyframes bid-flash {
+  0% {
+    background-color: var(--saffron);
+    color: var(--saffron-ink);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes live-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ticket-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) rotate(-2.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-1.2deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

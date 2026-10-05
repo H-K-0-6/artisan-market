@@ -23,7 +23,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
   return (
     <div className="grid gap-6">
       <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Audit log</h1>
+        <h1 className="display text-4xl">Audit log</h1>
         <p className="text-sm text-muted-foreground">Every moderation action, newest first.</p>
       </div>
       <AuditTable rows={result.rows} view={toView(result, state, sp)} actions={actions} />

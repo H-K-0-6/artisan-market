@@ -37,7 +37,7 @@ export default async function MyAuctionsPage({ searchParams }: { searchParams: P
           role="status"
           className={
             message.tone === "ok"
-              ? "rounded-lg border border-emerald-500/40 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/30"
+              ? "rounded-lg border border-weld/30 bg-weld-soft p-3 text-sm"
               : "rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"
           }
         >

@@ -15,7 +15,7 @@ export default async function AdminAuctionsPage({ searchParams }: { searchParams
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Auctions</h1>
+      <h1 className="display text-4xl">Auctions</h1>
       <AuctionsTable rows={result.rows} view={toView(result, state, sp)} />
     </div>
   );

@@ -1,21 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 
-const LABEL: Record<string, string> = {
-  PENDING: "Awaiting payment",
-  PAID: "Paid",
-  SHIPPED: "Shipped",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
-  EXPIRED: "Expired",
-  REFUNDED: "Refunded",
+const MAP: Record<string, { label: string; variant: "success" | "indigo" | "danger" | "secondary" }> = {
+  PENDING: { label: "Awaiting payment", variant: "indigo" },
+  PAID: { label: "Paid", variant: "success" },
+  SHIPPED: { label: "Shipped", variant: "success" },
+  DELIVERED: { label: "Delivered", variant: "success" },
+  CANCELLED: { label: "Cancelled", variant: "secondary" },
+  EXPIRED: { label: "Expired", variant: "secondary" },
+  REFUNDED: { label: "Refunded", variant: "danger" },
 };
 
 export function OrderStatusBadge({ status }: { status: string }) {
-  const variant =
-    status === "PAID" || status === "SHIPPED" || status === "DELIVERED"
-      ? "default"
-      : status === "PENDING"
-        ? "secondary"
-        : "outline";
-  return <Badge variant={variant}>{LABEL[status] ?? status}</Badge>;
+  const s = MAP[status] ?? { label: status, variant: "secondary" as const };
+  return <Badge variant={s.variant}>{s.label}</Badge>;
 }

@@ -26,7 +26,7 @@ export default async function ShopOrdersPage() {
   return (
     <div className="grid gap-6">
       <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Orders</h1>
+        <h1 className="display text-4xl">Orders</h1>
         <p className="text-sm text-muted-foreground">
           {toShip} to ship · Sales {formatCents(totals.gross)} · Net after {shop.commissionBps / 100}% commission{" "}
           {formatCents(totals.net)}

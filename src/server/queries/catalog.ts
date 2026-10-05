@@ -83,7 +83,7 @@ export function getProductBySlug(slug: string) {
     include: {
       images: { orderBy: { position: "asc" } },
       category: { select: { name: true, slug: true } },
-      artisan: { select: { id: true, userId: true, shopName: true, slug: true, avatarUrl: true } },
+      artisan: { select: { id: true, userId: true, shopName: true, slug: true, avatarUrl: true, bio: true } },
     },
   });
 }

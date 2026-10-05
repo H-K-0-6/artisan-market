@@ -19,7 +19,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
   return (
     <div className="grid gap-6">
       <div className="grid gap-1">
-        <h1 className="text-2xl font-semibold">Products</h1>
+        <h1 className="display text-4xl">Products</h1>
         <p className="text-sm text-muted-foreground">Hidden products are removed from the store until restored.</p>
       </div>
       <ProductsTable rows={result.rows} view={toView(result, state, sp)} />

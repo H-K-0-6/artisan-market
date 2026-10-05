@@ -1,13 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 
-const MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+type Variant = "live" | "success" | "warning" | "danger" | "indigo" | "secondary";
+
+const MAP: Record<string, { label: string; variant: Variant }> = {
   DRAFT: { label: "Draft", variant: "secondary" },
-  SCHEDULED: { label: "Scheduled", variant: "secondary" },
-  LIVE: { label: "Live", variant: "default" },
-  ENDED: { label: "Sold, awaiting payment", variant: "outline" },
-  PAID: { label: "Sold, paid", variant: "default" },
+  SCHEDULED: { label: "Scheduled", variant: "indigo" },
+  LIVE: { label: "Live", variant: "live" },
+  ENDED: { label: "Sold, awaiting payment", variant: "warning" },
+  PAID: { label: "Sold and paid", variant: "success" },
   UNSOLD: { label: "Unsold", variant: "secondary" },
-  CANCELLED: { label: "Cancelled", variant: "destructive" },
+  CANCELLED: { label: "Withdrawn", variant: "danger" },
 };
 
 export function AuctionStatusBadge({ status }: { status: string }) {

@@ -20,7 +20,7 @@ export default async function MyProductsPage() {
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Products</h1>
+        <h1 className="display text-4xl">Products</h1>
         <Link href="/dashboard/products/new" className={buttonVariants()}>New product</Link>
       </div>
       {products.length === 0 ? (

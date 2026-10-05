@@ -5,20 +5,19 @@ import { getAdminOverview } from "@/server/queries/admin";
 import { RevenueChart } from "@/components/admin/revenue-chart";
 import { ActivityFeed } from "@/components/admin/activity-feed";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile } from "@/components/dashboard/dashboard-shell";
 
 export const metadata = { title: "Admin" };
 
-function Stat({ label, value, sub, href }: { label: string; value: string; sub?: string; href?: string }) {
-  const body = (
-    <Card className="h-full transition-colors hover:bg-muted/40">
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-      </CardHeader>
-      {sub && <CardContent className="-mt-2 text-xs text-muted-foreground">{sub}</CardContent>}
-    </Card>
+function Stat(props: { label: string; value: string; sub?: string; href?: string; tone?: "indigo" | "saffron" | "weld" | "madder" }) {
+  const tile = <StatTile label={props.label} value={props.value} note={props.sub} tone={props.tone} />;
+  return props.href ? (
+    <Link href={props.href} className="rounded-2xl transition-transform hover:-translate-y-0.5">
+      {tile}
+    </Link>
+  ) : (
+    tile
   );
-  return href ? <Link href={href}>{body}</Link> : body;
 }
 
 /** The product title or user email recorded in an audit row's meta, if any. */
@@ -35,17 +34,17 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Admin overview</h1>
+      <h1 className="display text-4xl">Overview</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Gross sales · 30 days" value={formatCents(o.last30.gross)} sub={`${o.last30.orders} paid orders`} href="/admin/orders?status=PAID" />
-        <Stat label="Commission · 30 days" value={formatCents(o.last30.commission)} sub={`${formatCents(o.allTime.commission)} all time`} />
-        <Stat label="Users" value={String(o.users)} sub={`${o.artisans} shops · ${o.bannedUsers} banned`} href="/admin/users" />
-        <Stat label="Live auctions" value={String(o.liveAuctions)} sub={`${o.pendingOrders} orders awaiting payment`} href="/admin/auctions?status=LIVE" />
-        <Stat label="Active products" value={String(o.activeProducts)} href="/admin/products?status=ACTIVE" />
-        <Stat label="Hidden products" value={String(o.hiddenProducts)} href="/admin/products?status=HIDDEN" />
-        <Stat label="Gross sales · all time" value={formatCents(o.allTime.gross)} sub={`${o.allTime.orders} orders`} />
+        <Stat label="Sales, last 30 days" value={formatCents(o.last30.gross)} sub={`${o.last30.orders} paid orders`} href="/admin/orders?status=PAID" tone="weld" />
+        <Stat label="Commission, last 30 days" value={formatCents(o.last30.commission)} sub={`${formatCents(o.allTime.commission)} all time`} tone="weld" />
+        <Stat label="Live auctions" value={String(o.liveAuctions)} sub={`${o.pendingOrders} won lots awaiting payment`} href="/admin/auctions?status=LIVE" tone="saffron" />
+        <Stat label="Hidden products" value={String(o.hiddenProducts)} sub="Removed from the shop by an admin" href="/admin/products?status=HIDDEN" tone={o.hiddenProducts ? "madder" : "indigo"} />
+        <Stat label="Users" value={String(o.users)} sub={`${o.bannedUsers} banned`} href="/admin/users" />
         <Stat label="Artisan shops" value={String(o.artisans)} href="/admin/users?role=artisan" />
+        <Stat label="Active products" value={String(o.activeProducts)} href="/admin/products?status=ACTIVE" />
+        <Stat label="Sales, all time" value={formatCents(o.allTime.gross)} sub={`${o.allTime.orders} orders`} tone="weld" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">

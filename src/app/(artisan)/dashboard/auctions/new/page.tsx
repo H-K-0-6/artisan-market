@@ -11,7 +11,7 @@ export default async function NewAuctionPage() {
   const [products, categories] = await Promise.all([listAuctionableProducts(shop.id), listCategories()]);
   return (
     <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">New auction</h1>
+      <h1 className="display text-4xl">New auction</h1>
       <AuctionForm products={products} categories={categories} />
     </div>
   );
