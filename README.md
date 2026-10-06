@@ -10,14 +10,14 @@ Stack: Next.js 16 (App Router) with a custom `server.ts` that also hosts Socket.
 
 ## Run locally
 
-On Windows, double-click **start.bat** (starts the database and the app, then opens the browser) and **stop.bat** to shut everything down cleanly. Or by hand:
+On Windows, double-click **start.bat** (starts the database, builds the app if the code changed, runs it in fast production mode, then opens the browser) and **stop.bat** to shut everything down cleanly. Or by hand:
 
 ```sh
 npm install
 cp .env.example .env           # fill in Tap test keys (TAP_*) and UPLOADTHING_TOKEN
 npm run db                     # local Postgres 17 (embedded, no Docker); leave running
 npx prisma migrate deploy && npm run db:seed
-npm run dev                    # http://localhost:3000
+npm run dev                    # http://localhost:3000 (live reload, slower; or: npm run build && npm start)
 ```
 
 Demo accounts (password `Password123!`): `admin@demo.test`, `artisan@demo.test`, `artisan2@demo.test`, `buyer@demo.test`, `buyer2@demo.test`.

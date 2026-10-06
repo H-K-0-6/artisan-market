@@ -313,7 +313,10 @@ async function onFailed(tx: Tx, charge: tapApi.TapCharge): Promise<TxResult> {
  */
 export async function syncOrderPayment(orderId: string, opts: { chargeId?: string } & PaymentDeps = {}) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, select: { paymentChargeId: true } });
-  const chargeId = opts.chargeId ?? order?.paymentChargeId;
+  // Only Tap charge ids (chg_...) can be looked up; anything else is a leftover
+  // from before Tap (e.g. a Stripe session id) and means "no payment started".
+  const stored = order?.paymentChargeId?.startsWith("chg_") ? order.paymentChargeId : null;
+  const chargeId = opts.chargeId ?? stored;
   if (!order || !chargeId) return { chargeStatus: null as string | null, result: null as ChargeResult | null };
   const charge = await client(opts).retrieveCharge(chargeId);
   if (!belongsTo(charge, orderId)) throw new PaymentError("That payment isn't for this order");
@@ -382,7 +385,7 @@ export async function releaseIfUnpaid(orderId: string, deps?: PaymentDeps): Prom
     return { kind: "reschedule", at: order.paymentHoldUntil };
   }
 
-  if (order.paymentChargeId) {
+  if (order.paymentChargeId?.startsWith("chg_")) {
     try {
       await syncOrderPayment(order.id, deps);
     } catch (err) {

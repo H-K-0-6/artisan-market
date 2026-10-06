@@ -42,9 +42,22 @@ if errorlevel 1 (
     echo Port %PORT% is in use by another program. Close it, or run stop.bat, then try again.
     goto :fail
   )
-  echo Starting app server, the first start can take a minute...
-  start "Artisan Market - server" cmd /k "set ARTISAN_WINDOW=server&& npm run dev"
-  call :waitapp 180 || goto :fail
+  rem Production mode: every page is compiled once up front, so browsing is fast.
+  rem Rebuild only when the code changed since the last build, which takes a few minutes.
+  rem For live-reload while editing code, run "npm run dev" instead.
+  node scripts/build-fresh.mjs
+  if errorlevel 1 (
+    echo Building the app, this takes a few minutes after code changes...
+    call npm run build >"%TEMP%\artisan-build.log" 2>&1
+    if errorlevel 1 (
+      echo The build failed:
+      type "%TEMP%\artisan-build.log"
+      goto :fail
+    )
+  )
+  echo Starting app server...
+  start "Artisan Market - server" cmd /k "set ARTISAN_WINDOW=server&& npm start"
+  call :waitapp 90 || goto :fail
 ) else (
   echo App server already running.
 )
