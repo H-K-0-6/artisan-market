@@ -22,7 +22,7 @@ await page.getByLabel("Password").fill("Password123!");
 await page.getByRole("button", { name: "Sign in" }).click();
 await page.waitForURL((u) => !u.pathname.startsWith("/sign-in"));
 
-await page.goto(`${BASE}/products/carved-cherry-spoon`);
+await page.goto(`${BASE}/products/${process.env.PRODUCT ?? "carved-cherry-spoon"}`);
 await page.getByRole("button", { name: "Add to cart" }).click();
 await page.getByText("Added to cart").waitFor();
 await page.goto(`${BASE}/cart`);
