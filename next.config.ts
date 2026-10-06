@@ -2,18 +2,22 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// Same-origin app: bids and sockets go to this server, payments redirect to Stripe
-// Checkout (no Stripe.js on our pages), photos upload to UploadThing and are served
-// from its CDN. Next's inline bootstrap scripts need 'unsafe-inline' without nonces.
+// Same-origin app: bids and sockets go to this server; BENEFIT and card payments
+// redirect to Tap's pages; BenefitPay loads Tap's SDK (from its CDNs, which talk to
+// *.tap.company); photos upload to UploadThing and are served from its CDN. Next's
+// inline bootstrap scripts need 'unsafe-inline' without nonces.
+// Tap Payments, its CDNs, and BenefitPay's checkout (opened in a frame by the SDK).
+const TAP = "https://*.tap.company https://tap-sdks.b-cdn.net https://*.b-cdn.net https://*.benefitpay.bh https://*.test-benefitpay.bh";
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${TAP} https://code.jquery.com`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://utfs.io https://*.ufs.sh https://picsum.photos https://fastly.picsum.photos",
-  "font-src 'self' data:",
-  "connect-src 'self' ws: wss: https://*.uploadthing.com https://utfs.io https://*.ufs.sh",
+  `img-src 'self' data: blob: https://utfs.io https://*.ufs.sh https://picsum.photos https://fastly.picsum.photos ${TAP}`,
+  `font-src 'self' data: ${TAP}`,
+  `connect-src 'self' ws: wss: https://*.uploadthing.com https://utfs.io https://*.ufs.sh ${TAP}`,
+  `frame-src ${TAP}`,
   "frame-ancestors 'none'",
-  "form-action 'self' https://checkout.stripe.com",
+  `form-action 'self' https://*.tap.company`,
   "base-uri 'self'",
   "object-src 'none'",
 ].join("; ");

@@ -1,79 +1,68 @@
 import { expect, test } from "@playwright/test";
-import Stripe from "stripe";
-import { signIn, withDb } from "./helpers";
+import { payOnBenefitPage, signIn, withDb } from "./helpers";
 
-test("buyer adds to cart, checks out on Stripe, and the webhook marks the order paid", async ({ page, request }) => {
+// Pays for real against Tap's sandbox (BENEFIT test card), so it needs Tap test keys.
+test.skip(!process.env.TAP_SECRET_KEY, "TAP_SECRET_KEY not set");
+
+test("buyer checks out, pays with BENEFIT on Tap's sandbox, and the order is paid", async ({ page, request }) => {
+  test.setTimeout(150_000);
   await signIn(page, "buyer@demo.test");
 
-  await page.goto("/products/walnut-serving-board");
   const stockBefore = await withDb(async (db) =>
     (await db.query(`SELECT stock FROM "Product" WHERE slug = 'walnut-serving-board'`)).rows[0].stock as number,
   );
+  await page.goto("/products/walnut-serving-board");
   await page.getByRole("button", { name: "Add to cart" }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
 
   await page.goto("/cart");
   await expect(page.getByText("Walnut Serving Board")).toBeVisible();
   await page.getByRole("button", { name: "Checkout" }).click();
+  await page.waitForURL(/\/pay\//);
+  const orderId = new URL(page.url()).pathname.split("/").pop()!;
 
-  // Real Stripe Checkout (test mode). Completing the hosted page is Stripe's job;
-  // we only confirm the redirect and then deliver the webhook ourselves.
-  await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
-
-  const order = await withDb(async (db) => {
-    const { rows } = await db.query(
-      `SELECT o.id, o."stripeCheckoutSessionId" AS sid, o.status FROM "Order" o JOIN "user" u ON u.id = o."buyerId"
-       WHERE u.email = 'buyer@demo.test' ORDER BY o."createdAt" DESC LIMIT 1`,
-    );
-    return rows[0] as { id: string; sid: string; status: string };
-  });
-  expect(order.status).toBe("PENDING");
-  expect(order.sid).toMatch(/^cs_test_/);
   // Stock is reserved as soon as the order exists.
   await withDb(async (db) => {
     const { rows } = await db.query(`SELECT stock FROM "Product" WHERE slug = 'walnut-serving-board'`);
     expect(rows[0].stock).toBe(stockBefore - 1);
   });
 
-  // Deliver a correctly signed checkout.session.completed to our webhook.
-  const payload = JSON.stringify({
-    id: `evt_e2e_${Date.now()}`,
-    object: "event",
-    type: "checkout.session.completed",
-    data: {
-      object: {
-        id: order.sid,
-        object: "checkout.session",
-        payment_status: "paid",
-        payment_intent: `pi_e2e_${Date.now()}`,
-        metadata: { orderId: order.id },
-        collected_information: {
-          shipping_details: {
-            name: "E2E Buyer",
-            address: { line1: "1 Test St", line2: null, city: "Testville", state: "CA", postal_code: "90001", country: "US" },
-          },
-        },
-      },
-    },
-  });
-  const signature = Stripe.webhooks.generateTestHeaderString({
-    payload,
-    secret: process.env.STRIPE_WEBHOOK_SECRET!,
-  });
-  const res = await request.post("/api/webhooks/stripe", {
-    headers: { "content-type": "application/json", "stripe-signature": signature },
-    data: payload,
-  });
-  expect(res.status()).toBe(200);
+  // The address form is prefilled from an earlier order on a retry; on a fresh run
+  // the payment methods stay locked until there's a delivery address.
+  if (await page.getByLabel("Recipient name").isVisible()) {
+    await expect(page.getByRole("button", { name: /^Pay BD/ })).toBeDisabled();
+    await page.getByLabel("Recipient name").fill("E2E Buyer");
+    await page.getByLabel("Mobile number").fill("3312 3456");
+    await page.getByLabel("House / building").fill("1204");
+    await page.getByLabel("Road").fill("4321");
+    await page.getByLabel("Block").fill("343");
+    await page.getByLabel("Area").fill("Juffair");
+    await page.getByRole("button", { name: "Save address" }).click();
+    await expect(page.getByText("Delivery address saved")).toBeVisible();
+  }
+  await page.getByRole("radio", { name: /BENEFIT debit card/ }).click();
+  await page.getByRole("button", { name: /^Pay BD .* with BENEFIT$/ }).click();
+  await page.waitForURL(/benefit-gateway|tap\.company/, { timeout: 30_000 });
+  await payOnBenefitPage(page);
 
-  // A bad signature is rejected.
-  const forged = await request.post("/api/webhooks/stripe", {
-    headers: { "content-type": "application/json", "stripe-signature": "t=1,v1=deadbeef" },
-    data: payload,
-  });
-  expect(forged.status()).toBe(400);
+  // Tap sends the buyer back; the app asks Tap for the result before showing success.
+  await page.waitForURL(/\/checkout\/success/, { timeout: 60_000 });
+  await expect(page.getByText("Thank you for your order!")).toBeVisible();
 
-  await page.goto(`/account/orders/${order.id}`);
+  const order = await withDb(async (db) =>
+    (await db.query(`SELECT status, "paymentMethod", "paidChargeId" FROM "Order" WHERE id = $1`, [orderId])).rows[0],
+  );
+  expect(order).toMatchObject({ status: "PAID", paymentMethod: "BENEFIT" });
+  expect(order.paidChargeId).toMatch(/^chg_/);
+
+  // A webhook without a valid signature is rejected.
+  const forged = await request.post("/api/webhooks/tap", {
+    headers: { "content-type": "application/json", hashstring: "deadbeef" },
+    data: { id: order.paidChargeId, object: "charge", status: "CAPTURED", amount: 25.5, currency: "BHD" },
+  });
+  expect(forged.status()).toBe(401);
+
+  await page.goto(`/account/orders/${orderId}`);
   await expect(page.getByText("Paid", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Testville")).toBeVisible();
+  await expect(page.getByText("Juffair")).toBeVisible();
 });

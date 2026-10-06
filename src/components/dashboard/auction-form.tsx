@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createAuction } from "@/server/actions/auction";
 import { UploadDropzone } from "@/lib/uploadthing";
-import { parseDollars } from "@/lib/money";
+import { parseAmount } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,12 +52,12 @@ export function AuctionForm({
     const f = new FormData(e.currentTarget);
     const money = (name: string) => {
       const raw = String(f.get(name) ?? "").trim();
-      return raw === "" ? null : parseDollars(raw);
+      return raw === "" ? null : parseAmount(raw);
     };
     const startPriceCents = money("startPrice");
     const minIncrementCents = money("minIncrement");
     const reserveRaw = String(f.get("reserve") ?? "").trim();
-    const reservePriceCents = reserveRaw === "" ? null : parseDollars(reserveRaw);
+    const reservePriceCents = reserveRaw === "" ? null : parseAmount(reserveRaw);
     const local: Record<string, string[]> = {};
     if (startPriceCents == null) local.startPriceCents = ["Enter a start price"];
     if (minIncrementCents == null) local.minIncrementCents = ["Enter an increment"];
@@ -191,13 +191,13 @@ export function AuctionForm({
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <legend className="mb-2 font-medium">Pricing</legend>
         <div className="grid gap-2">
-          <Label htmlFor="startPrice">Start price (USD)</Label>
+          <Label htmlFor="startPrice">Opening bid (BD)</Label>
           <Input id="startPrice" name="startPrice" inputMode="decimal" required />
           {err("startPriceCents")}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="minIncrement">Min increment (USD)</Label>
-          <Input id="minIncrement" name="minIncrement" inputMode="decimal" defaultValue="5.00" required />
+          <Label htmlFor="minIncrement">Bid increment (BD)</Label>
+          <Input id="minIncrement" name="minIncrement" inputMode="decimal" defaultValue="1.000" required />
           {err("minIncrementCents")}
         </div>
         <div className="grid gap-2">

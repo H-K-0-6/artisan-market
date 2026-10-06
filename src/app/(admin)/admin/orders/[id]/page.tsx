@@ -13,13 +13,16 @@ export const metadata = { title: "Order · Admin" };
 
 type Address = { name?: string; line1?: string; line2?: string; city?: string; state?: string; postal_code?: string; country?: string };
 
+const PAYMENT_METHOD_LABEL: Record<string, string> = { BENEFIT: "BENEFIT debit card", BENEFITPAY: "BenefitPay", CARD: "Card" };
+
 function AddressBlock({ value }: { value: unknown }) {
   if (!value || typeof value !== "object") return <span className="text-muted-foreground">Not collected yet.</span>;
-  const a = value as Address & { address?: Address };
-  const addr = a.address ?? a; // Stripe nests { name, address: {...} }
+  const a = value as Address & { address?: Address; phone?: string };
+  const addr = a.address ?? a; // stored as { name, phone, address: {...} }
   return (
     <address className="not-italic leading-relaxed">
       {a.name && <div>{a.name}</div>}
+      {a.phone && <div>{a.phone}</div>}
       {addr.line1 && <div>{addr.line1}</div>}
       {addr.line2 && <div>{addr.line2}</div>}
       <div>{[addr.city, addr.state, addr.postal_code].filter(Boolean).join(", ")}</div>
@@ -86,11 +89,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           <CardContent className="grid gap-1 text-sm">
             <span>Paid: {order.paidAt ? formatDateTime(order.paidAt) : "—"}</span>
             {order.payDeadline && <span>Pay deadline: {formatDateTime(order.payDeadline)}</span>}
+            <span>Method: {order.paymentMethod ? PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod : "—"}</span>
             <span className="break-all">
-              Checkout session: <span className="font-mono text-xs">{order.stripeCheckoutSessionId ?? "—"}</span>
-            </span>
-            <span className="break-all">
-              Payment intent: <span className="font-mono text-xs">{order.stripePaymentIntentId ?? "—"}</span>
+              Tap charge: <span className="font-mono text-xs">{order.paidChargeId ?? order.paymentChargeId ?? "—"}</span>
             </span>
             {order.auction && (
               <span>

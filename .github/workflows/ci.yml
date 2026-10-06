@@ -24,9 +24,10 @@ jobs:
       DATABASE_URL_E2E: postgresql://app:app@localhost:5432/artisan_e2e
       BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-0123456789
       BETTER_AUTH_URL: http://localhost:3000
-      # Stripe test-mode keys (repository secrets). E2E redirects to real Stripe Checkout.
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      # Tap sandbox keys (repository secrets). E2E opens a real Tap sandbox payment page.
+      TAP_SECRET_KEY: ${{ secrets.TAP_SECRET_KEY }}
+      TAP_PUBLISHABLE_KEY: ${{ secrets.TAP_PUBLISHABLE_KEY }}
+      TAP_MERCHANT_ID: ${{ secrets.TAP_MERCHANT_ID }}
       UPLOADTHING_TOKEN: ${{ secrets.UPLOADTHING_TOKEN }}
     steps:
       - uses: actions/checkout@v4

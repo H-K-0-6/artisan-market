@@ -9,6 +9,7 @@ export const QUEUES = {
   auctionStart: "auction.start",
   auctionEnd: "auction.end",
   orderExpire: "order.expire",
+  orderRelease: "order.release",
   sweep: "auction.sweep",
 } as const;
 

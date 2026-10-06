@@ -2,11 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AuthError, requireRole } from "@/lib/rbac";
-import { stripe } from "@/lib/stripe";
-import { createCheckoutSessionForOrder } from "@/server/services/payment.service";
-import { createOrderFromCart, OrderError, releaseCartOrder } from "@/server/services/order.service";
+import { TapError } from "@/lib/tap";
+import { createOrderFromCart, OrderError } from "@/server/services/order.service";
+import {
+  attachCharge,
+  CHECKOUT_HOLD_MS,
+  PaymentError,
+  prepareBenefitPay,
+  releaseCartOrder,
+  scheduleRelease,
+  startRedirectPayment,
+  syncOrderPayment,
+  type BenefitPayConfig,
+  type ShippingAddress,
+} from "@/server/services/payments";
 import type { FormState } from "@/server/actions/types";
 
 async function signedInUserId() {
@@ -18,10 +30,20 @@ async function signedInUserId() {
   }
 }
 
+/** Turns errors into a message the buyer can act on. */
+function paymentMessage(e: unknown) {
+  if (e instanceof PaymentError || e instanceof OrderError) return e.message;
+  if (e instanceof TapError) {
+    console.error("Tap rejected the request", e.status, e.details);
+    return "The payment provider couldn't start this payment. Please try again or choose another method.";
+  }
+  console.error("Payment failed", e);
+  return "Something went wrong starting the payment. Please try again.";
+}
+
 /**
- * Creates a PENDING order from the cart (stock reserved), opens a Stripe
- * Checkout Session for it and redirects there. If Stripe fails, the order is
- * cancelled, its stock released and the items put back in the cart.
+ * Creates a PENDING order from the cart (stock reserved for a while) and sends the
+ * buyer to the pay page to add a delivery address and choose how to pay.
  */
 export async function checkout(): Promise<FormState> {
   const userId = await signedInUserId();
@@ -35,62 +57,124 @@ export async function checkout(): Promise<FormState> {
     console.error("Checkout failed", e);
     return { error: "Checkout failed. Please try again." };
   }
-
-  let url: string | null;
-  try {
-    url = (await createCheckoutSessionForOrder(orderId, userId)).url;
-    if (!url) throw new Error("Stripe returned a session without a URL");
-  } catch (e) {
-    console.error("Creating Stripe Checkout Session failed", e);
-    await releaseCartOrder(orderId, "CANCELLED", { restoreCart: true });
-    revalidatePath("/cart");
-    return { error: "We couldn't start the payment. Your cart has been kept; please try again." };
-  }
-
+  await scheduleRelease(orderId, new Date(Date.now() + CHECKOUT_HOLD_MS));
   revalidatePath("/cart");
-  redirect(url);
+  redirect(`/pay/${orderId}`);
 }
 
-/** Sends the buyer back to the still-open Stripe session of a PENDING cart order. */
-export async function resumeCartPayment(orderId: string): Promise<FormState> {
+const addressSchema = z.object({
+  name: z.string().trim().min(2, "Enter the recipient's name").max(80),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .pipe(z.string().regex(/^(\+?973)?[3169]\d{7}$/, "Enter a Bahraini number, e.g. 3XXX XXXX")),
+  building: z.string().trim().min(1, "Enter the house or building number").max(20),
+  flat: z.string().trim().max(20).optional(),
+  road: z.string().trim().min(1, "Enter the road number").max(20),
+  block: z.string().trim().regex(/^\d{3,4}$/, "Blocks are 3 or 4 digits"),
+  area: z.string().trim().min(2, "Enter the area, e.g. Juffair").max(60),
+});
+
+/** Saves the Bahraini delivery address on a PENDING order. */
+export async function saveShippingAddress(orderId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const userId = await signedInUserId();
   if (!userId) return { error: "Sign in first" };
-  const order = await prisma.order.findFirst({
-    where: { id: orderId, buyerId: userId, source: "CART", status: "PENDING" },
-    select: { stripeCheckoutSessionId: true },
+  const parsed = addressSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  const a = parsed.data;
+  const phone = a.phone.startsWith("+") ? a.phone : a.phone.startsWith("973") ? `+${a.phone}` : `+973${a.phone}`;
+  const address: ShippingAddress = {
+    name: a.name,
+    phone,
+    address: {
+      line1: [a.flat ? `Flat ${a.flat}` : null, `Building ${a.building}`, `Road ${a.road}`].filter(Boolean).join(", "),
+      line2: `Block ${a.block}`,
+      city: a.area,
+      country: "BH",
+    },
+    fields: { building: a.building, flat: a.flat || undefined, road: a.road, block: a.block, area: a.area },
+  };
+  const { count } = await prisma.order.updateMany({
+    where: { id: orderId, buyerId: userId, status: "PENDING" },
+    data: { shippingAddress: address },
   });
-  if (!order?.stripeCheckoutSessionId) return { error: "This order can no longer be paid" };
+  if (count === 0) return { error: "This order can no longer be changed" };
+  revalidatePath(`/pay/${orderId}`);
+  return { ok: true };
+}
 
-  let url: string | null = null;
+/** Starts a BENEFIT or card payment and sends the buyer to Tap's page. */
+export async function payWith(orderId: string, method: "BENEFIT" | "CARD"): Promise<FormState> {
+  const userId = await signedInUserId();
+  if (!userId) return { error: "Sign in first" };
+  let url: string;
   try {
-    const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId);
-    if (session.status === "open") url = session.url;
+    url = await startRedirectPayment(orderId, userId, method);
   } catch (e) {
-    console.error("Retrieving Stripe session failed", e);
+    return { error: paymentMessage(e) };
   }
-  if (!url) return { error: "This checkout has closed. Cancel the order and check out again." };
   redirect(url);
 }
 
-/** Cancels a PENDING cart order: closes its Stripe session, releases stock, refills the cart. */
+/** The signed request the BenefitPay button needs. */
+export async function getBenefitPayConfig(orderId: string): Promise<{ config?: BenefitPayConfig; error?: string }> {
+  const userId = await signedInUserId();
+  if (!userId) return { error: "Sign in first" };
+  try {
+    return { config: await prepareBenefitPay(orderId, userId) };
+  } catch (e) {
+    return { error: paymentMessage(e) };
+  }
+}
+
+/** Called when the BenefitPay SDK creates its charge, so we know which one to check. */
+export async function recordBenefitPayCharge(orderId: string, chargeId: string): Promise<FormState> {
+  const userId = await signedInUserId();
+  if (!userId) return { error: "Sign in first" };
+  try {
+    await attachCharge(orderId, userId, chargeId);
+    return { ok: true };
+  } catch (e) {
+    return { error: paymentMessage(e) };
+  }
+}
+
+/** Checks the order's latest payment with Tap (after BenefitPay reports success). */
+export async function confirmPayment(orderId: string): Promise<{ status?: string; error?: string }> {
+  const userId = await signedInUserId();
+  if (!userId) return { error: "Sign in first" };
+  const order = await prisma.order.findFirst({ where: { id: orderId, buyerId: userId }, select: { id: true } });
+  if (!order) return { error: "Order not found" };
+  try {
+    await syncOrderPayment(order.id);
+  } catch (e) {
+    return { error: paymentMessage(e) };
+  }
+  const now = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: { status: true } });
+  revalidatePath(`/account/orders/${order.id}`);
+  return { status: now.status };
+}
+
+/** Cancels a PENDING cart order: releases its stock and puts the items back in the cart. */
 export async function cancelCartOrder(orderId: string): Promise<FormState> {
   const userId = await signedInUserId();
   if (!userId) return { error: "Sign in first" };
   const order = await prisma.order.findFirst({
     where: { id: orderId, buyerId: userId, source: "CART", status: "PENDING" },
-    select: { id: true, stripeCheckoutSessionId: true },
+    select: { id: true, paymentChargeId: true },
   });
   if (!order) return { error: "This order can't be cancelled" };
 
-  if (order.stripeCheckoutSessionId) {
+  // If a payment went through in the meantime, record it instead of cancelling.
+  if (order.paymentChargeId) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId);
-      if (session.status === "complete") return { error: "This order has already been paid" };
-      if (session.status === "open") await stripe.checkout.sessions.expire(session.id);
+      await syncOrderPayment(order.id);
     } catch (e) {
-      console.error("Expiring Stripe session failed", e);
-      return { error: "Couldn't cancel the payment session. Please try again." };
+      return { error: paymentMessage(e) };
     }
+    const now = await prisma.order.findUniqueOrThrow({ where: { id: order.id }, select: { status: true } });
+    if (now.status !== "PENDING") return { error: "This order has already been paid" };
   }
 
   await releaseCartOrder(order.id, "CANCELLED", { restoreCart: true });

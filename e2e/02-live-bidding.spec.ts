@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { DB_NOW, signedInContext, withDb } from "./helpers";
 
 test("two buyers bid live; each sees the other's bid and the outbid alert", async ({ browser }) => {
-  // A LIVE auction with 10 minutes left ($100 start, $5 increment).
+  // A LIVE auction with 10 minutes left (BD 100 start, BD 5 increment).
   const auctionId = await withDb(async (db) => {
     const { rows: [shop] } = await db.query(
       `SELECT s.id FROM "ArtisanProfile" s JOIN "user" u ON u.id = s."userId" WHERE u.email = 'artisan@demo.test'`,
@@ -16,7 +16,7 @@ test("two buyers bid live; each sees the other's bid and the outbid alert", asyn
     await db.query(
       `INSERT INTO "Auction" (id, "productId", "artisanId", status, "startPriceCents", "minIncrementCents",
          "startsAt", "endsAt", "originalEndsAt", "updatedAt")
-       VALUES ($1, $2, $3, 'LIVE', 10000, 500, ${DB_NOW} - interval '1 minute',
+       VALUES ($1, $2, $3, 'LIVE', 100000, 5000, ${DB_NOW} - interval '1 minute',
          ${DB_NOW} + interval '10 minutes', ${DB_NOW} + interval '10 minutes', ${DB_NOW})`,
       [`e2ea${suffix}`, `e2ep${suffix}`, shop.id],
     );
@@ -27,17 +27,17 @@ test("two buyers bid live; each sees the other's bid and the outbid alert", asyn
   const b = await signedInContext(browser, "buyer2@demo.test");
   await a.page.goto(`/auctions/${auctionId}`);
   await b.page.goto(`/auctions/${auctionId}`);
-  await expect(a.page.getByTestId("current-price")).toHaveText("$100.00");
-  await expect(b.page.getByTestId("current-price")).toHaveText("$100.00");
+  await expect(a.page.getByTestId("current-price")).toHaveText("BD 100.000");
+  await expect(b.page.getByTestId("current-price")).toHaveText("BD 100.000");
 
   // Buyer A opens at the start price; B sees it live, without reloading.
-  await a.page.getByRole("button", { name: "Bid $100.00" }).click();
-  await expect(b.page.getByTestId("current-price")).toHaveText("$100.00");
+  await a.page.getByRole("button", { name: "Bid BD 100.000" }).click();
+  await expect(b.page.getByTestId("current-price")).toHaveText("BD 100.000");
   await expect(b.page.getByTestId("bid-count")).toContainText("1");
 
   // Buyer B outbids; A sees the new price and gets the outbid notification toast.
-  await b.page.getByRole("button", { name: "Bid $105.00" }).click();
-  await expect(a.page.getByTestId("current-price")).toHaveText("$105.00");
+  await b.page.getByRole("button", { name: "Bid BD 105.000" }).click();
+  await expect(a.page.getByTestId("current-price")).toHaveText("BD 105.000");
   await expect(a.page.getByText(/outbid/i).first()).toBeVisible();
 
   // A too-low typed bid is rejected inline.
@@ -51,7 +51,7 @@ test("two buyers bid live; each sees the other's bid and the outbid alert", asyn
       `SELECT a."currentPriceCents", a."bidCount", u.email FROM "Auction" a JOIN "user" u ON u.id = a."highBidderId" WHERE a.id = $1`,
       [auctionId],
     );
-    expect(row).toMatchObject({ currentPriceCents: 10500, bidCount: 2, email: "buyer2@demo.test" });
+    expect(row).toMatchObject({ currentPriceCents: 105000, bidCount: 2, email: "buyer2@demo.test" });
   });
 
   await a.context.close();

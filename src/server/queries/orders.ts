@@ -78,6 +78,7 @@ export function listShopOrderItems(artisanId: string) {
 
 export type ShippingAddress = {
   name?: string | null;
+  phone?: string | null;
   address?: {
     line1?: string | null;
     line2?: string | null;
@@ -94,9 +95,10 @@ export function formatAddress(json: unknown): string[] {
   const a = s.address ?? {};
   return [
     s.name,
+    s.phone,
     a.line1,
     a.line2,
     [a.city, a.state, a.postal_code].filter(Boolean).join(", "),
-    a.country,
+    a.country === "BH" ? "Bahrain" : a.country,
   ].filter((x): x is string => Boolean(x));
 }

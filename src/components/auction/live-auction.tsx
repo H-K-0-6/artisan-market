@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ServerEvents } from "@/server/realtime/emit";
 import { placeBidAction } from "@/server/actions/bid";
-import { formatCents, parseDollars } from "@/lib/money";
+import { formatCents, parseAmount, toMajorString } from "@/lib/money";
 import { agoFromMs } from "@/lib/time";
 import { useLiveLot, type LotStatus } from "@/hooks/use-live-lot";
 import { LotTicket } from "@/components/auction/lot-ticket";
@@ -203,7 +203,7 @@ function BidForm(props: {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const placeholder = useMemo(() => (props.minNext / 100).toFixed(2), [props.minNext]);
+  const placeholder = useMemo(() => toMajorString(props.minNext), [props.minNext]);
 
   if (!props.viewer.signedIn) {
     return (
@@ -221,7 +221,7 @@ function BidForm(props: {
 
   function submit(amountCents: number | null) {
     if (amountCents == null || amountCents <= 0) {
-      setError("Enter an amount in dollars, like 320 or 320.50.");
+      setError("Enter an amount in dinars, like 120 or 120.500.");
       return;
     }
     setError(null);
@@ -235,7 +235,7 @@ function BidForm(props: {
       }
       if (res.code === "TOO_LOW" && res.minCents) {
         setError(`Someone got there first. The lowest bid is now ${formatCents(res.minCents)}.`);
-        setValue((res.minCents / 100).toFixed(2));
+        setValue(toMajorString(res.minCents));
       } else {
         setError(res.message);
       }
@@ -247,7 +247,7 @@ function BidForm(props: {
       className="grid gap-3 rounded-2xl border bg-card p-5"
       onSubmit={(e) => {
         e.preventDefault();
-        submit(value.trim() === "" ? props.minNext : parseDollars(value));
+        submit(value.trim() === "" ? props.minNext : parseAmount(value));
       }}
     >
       <Label htmlFor="bid-amount" className="text-sm font-semibold">
@@ -255,12 +255,12 @@ function BidForm(props: {
       </Label>
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-lg font-semibold text-muted-foreground">$</span>
+          <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-lg font-semibold text-muted-foreground">BD</span>
           <Input
             id="bid-amount"
             name="amount"
             inputMode="decimal"
-            className="numeric h-12 pl-8 text-lg font-semibold"
+            className="numeric h-12 pl-12 text-lg font-semibold"
             placeholder={placeholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}

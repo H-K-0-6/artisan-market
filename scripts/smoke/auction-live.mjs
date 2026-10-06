@@ -1,6 +1,6 @@
 // End-to-end check of the live auction flow against a running server:
 // scheduled start (sweep/job), two bidders on sockets, outbid + anti-snipe events,
-// automatic close, winner order and the /pay redirect to Stripe Checkout.
+// automatic close, winner order and the winner's /pay checkout page. Amounts are BHD fils.
 // Usage: node scripts/smoke/auction-live.mjs   (server on PORT, default 3000)
 import "dotenv/config";
 import pg from "pg";
@@ -41,7 +41,7 @@ await db.query(
 await db.query(
   `INSERT INTO "Auction" (id, "productId", "artisanId", status, "startPriceCents", "minIncrementCents",
      "startsAt", "endsAt", "originalEndsAt", "updatedAt")
-   VALUES ($1, $2, $3, 'SCHEDULED', 5000, 500, (now() AT TIME ZONE 'UTC') + interval '3 seconds',
+   VALUES ($1, $2, $3, 'SCHEDULED', 50000, 5000, (now() AT TIME ZONE 'UTC') + interval '3 seconds',
      (now() AT TIME ZONE 'UTC') + interval '60 seconds', (now() AT TIME ZONE 'UTC') + interval '60 seconds', (now() AT TIME ZONE 'UTC'))`,
   [auctionId, productId, shop.id],
 );
@@ -95,30 +95,30 @@ await waitFor("buyer2", "auction:started", (p) => p.auctionId === auctionId, 60_
 log("auction:started received");
 
 // --- 4. bidding ---
-const tooLow = await bid("buyer", 4000);
+const tooLow = await bid("buyer", 40000);
 log("too-low bid ->", tooLow.status, tooLow.body.code);
 if (tooLow.status !== 422) fail("expected 422 for a bid below the start price");
 
-const b1 = await bid("buyer", 5000);
+const b1 = await bid("buyer", 50000);
 if (b1.status !== 201) fail(`buyer first bid -> ${b1.status} ${JSON.stringify(b1.body)}`);
-const seen1 = await waitFor("buyer2", "bid:placed", (p) => p.amountCents === 5000);
-log(`buyer bid $50.00 -> 201; buyer2 saw bid:placed after ${seen1.at - b1.sent}ms as "${seen1.payload.bidderAlias}"`);
+const seen1 = await waitFor("buyer2", "bid:placed", (p) => p.amountCents === 50000);
+log(`buyer bid BD 50 -> 201; buyer2 saw bid:placed after ${seen1.at - b1.sent}ms as "${seen1.payload.bidderAlias}"`);
 
-const b2 = await bid("buyer2", 5500);
+const b2 = await bid("buyer2", 55000);
 if (b2.status !== 201) fail(`buyer2 bid -> ${b2.status} ${JSON.stringify(b2.body)}`);
-const seen2 = await waitFor("buyer", "bid:placed", (p) => p.amountCents === 5500);
+const seen2 = await waitFor("buyer", "bid:placed", (p) => p.amountCents === 55000);
 const outbid = await waitFor("buyer", "bid:outbid", (p) => p.auctionId === auctionId);
 const extended = await waitFor("buyer", "auction:extended", (p) => p.auctionId === auctionId);
-log(`buyer2 bid $55.00 -> 201; buyer saw it after ${seen2.at - b2.sent}ms, got bid:outbid ($${outbid.payload.amountCents / 100}) and auction:extended to ${extended.payload.endsAt}`);
+log(`buyer2 bid BD 55 -> 201; buyer saw it after ${seen2.at - b2.sent}ms, got bid:outbid (BD ${outbid.payload.amountCents / 1000}) and auction:extended to ${extended.payload.endsAt}`);
 
-const repeat = await bid("buyer2", 6000);
+const repeat = await bid("buyer2", 60000);
 log("high bidder bidding again ->", repeat.status, repeat.body.code);
 
-const b3 = await bid("buyer", 6000);
+const b3 = await bid("buyer", 60000);
 if (b3.status !== 201) fail(`buyer winning bid -> ${b3.status} ${JSON.stringify(b3.body)}`);
 await waitFor("buyer2", "bid:outbid", (p) => p.auctionId === auctionId);
 const { rows: [cur] } = await db.query(`SELECT "endsAt", "bidCount", "currentPriceCents" FROM "Auction" WHERE id = $1`, [auctionId]);
-log(`buyer bid $60.00 -> 201; buyer2 outbid. DB: price=${cur.currentPriceCents} bids=${cur.bidCount} `);
+log(`buyer bid BD 60 -> 201; buyer2 outbid. DB: price=${cur.currentPriceCents} bids=${cur.bidCount} `);
 
 // --- 5. closes by itself (end job re-queued after anti-snipe, or the 30s sweep) ---
 log("waiting for the server to close the auction...");
@@ -126,7 +126,7 @@ const ended = await waitFor("buyer2", "auction:ended", (p) => p.auctionId === au
 // endsAt as the server reported it (node-pg reads timestamp-without-tz columns as local time).
 const finalEndsAt = events.buyer2.filter((e) => e.event === "bid:placed").at(-1).payload.endsAt;
 const lateBy = ended.at - new Date(finalEndsAt).getTime();
-log(`auction:ended ${ended.payload.result} at $${ended.payload.finalPriceCents / 100} (${(lateBy / 1000).toFixed(1)}s after endsAt)`);
+log(`auction:ended ${ended.payload.result} at BD ${ended.payload.finalPriceCents / 1000} (${(lateBy / 1000).toFixed(1)}s after endsAt)`);
 const won = await waitFor("buyer", "auction:won", (p) => p.auctionId === auctionId, 10_000).catch((e) => fail(e.message));
 log("winner got auction:won with order", won.payload.orderId);
 
@@ -139,12 +139,13 @@ log("order:", JSON.stringify({ ...order, payDeadline: order.payDeadline.toISOStr
 const notes = events.buyer.filter((e) => e.event === "notification").map((e) => e.payload.title);
 log("buyer notification events:", JSON.stringify(notes));
 
-// --- 6. Pay link ---
-const pay = await fetch(`${B}/pay/${won.payload.orderId}`, { headers: { cookie: cookies.buyer }, redirect: "manual" });
-const loc = pay.headers.get("location") ?? "";
-log("winner GET /pay ->", pay.status, new URL(loc, B).hostname);
-const payOther = await fetch(`${B}/pay/${won.payload.orderId}`, { headers: { cookie: cookies.buyer2 }, redirect: "manual" });
-log("other buyer GET /pay ->", payOther.status, payOther.headers.get("location"));
+// --- 6. Pay page (only the winner can open it) ---
+const payUrl = `${B}/pay/${won.payload.orderId}`;
+const pay = await fetch(payUrl, { headers: { cookie: cookies.buyer }, redirect: "manual" });
+const payHtml = await pay.text();
+log("winner GET /pay ->", pay.status, payHtml.includes("Delivery address") ? "(checkout page)" : "");
+const payOther = await fetch(payUrl, { headers: { cookie: cookies.buyer2 }, redirect: "manual" });
+log("other buyer GET /pay ->", payOther.status);
 
 for (const s of Object.values(sockets)) s.close();
 await db.end();
@@ -153,9 +154,10 @@ const ok =
   ended.payload.result === "SOLD" &&
   order.status === "PENDING" &&
   order.email === "buyer@demo.test" &&
-  order.totalCents === 6000 &&
-  loc.includes("checkout.stripe.com") &&
-  (payOther.headers.get("location") ?? "").includes("not-found") &&
+  order.totalCents === 60000 &&
+  pay.status === 200 &&
+  payHtml.includes("Delivery address") &&
+  payOther.status === 404 &&
   repeat.status === 409;
 console.log(ok ? "PASS" : "FAIL");
 process.exit(ok ? 0 : 1);

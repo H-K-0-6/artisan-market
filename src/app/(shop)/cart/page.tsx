@@ -105,7 +105,7 @@ export default async function CartPage() {
           ) : (
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <LockIcon className="mt-0.5 size-3.5 shrink-0" />
-              You&apos;ll pay on Stripe&apos;s secure page. We hold these pieces for you while you pay.
+              Next you&apos;ll add a delivery address and pay with BENEFIT, BenefitPay or a card. We hold these pieces for you while you pay.
             </p>
           )}
         </aside>

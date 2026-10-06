@@ -31,7 +31,7 @@ export default async function CheckoutSuccessPage({
         </h1>
         <p className="text-muted-foreground">
           {pending
-            ? "We're waiting for Stripe to confirm your payment. This usually takes a few seconds, and this page updates on its own. You can also check your orders later."
+            ? "We're waiting for the bank to confirm your payment. This usually takes a few seconds, and this page updates on its own. You can also check your orders later."
             : confirmed
               ? "Your payment is confirmed. The makers have been notified, and we'll let you know when your order ships."
               : "This order is no longer active."}

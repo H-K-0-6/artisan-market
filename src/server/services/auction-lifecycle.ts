@@ -1,4 +1,3 @@
-import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { commissionCents, formatCents } from "@/lib/money";
 import { scheduleAuctionEnd, scheduleAuctionStart, scheduleOrderExpire } from "@/lib/boss";
@@ -199,15 +198,30 @@ export async function closeAuction(auctionId: string): Promise<StepResult> {
 // Unpaid winner order -> EXPIRED, auction -> UNSOLD
 
 export async function expireAuctionOrder(orderId: string): Promise<StepResult> {
+  // A payment may have gone through without its webhook reaching us: ask Tap first.
+  const due = await prisma.order.findFirst({
+    where: { id: orderId, status: "PENDING", source: "AUCTION", paymentChargeId: { not: null }, payDeadline: { lte: new Date() } },
+    select: { id: true },
+  });
+  if (due) {
+    try {
+      const { syncOrderPayment } = await import("@/server/services/payments");
+      await syncOrderPayment(orderId);
+    } catch (err) {
+      console.error(`[auction] could not check payment for order ${orderId} before expiring it`, err);
+      return { kind: "reschedule", at: new Date(Date.now() + 5 * 60_000) };
+    }
+  }
+
   const result = await prisma.$transaction(
     async (tx) => {
       const rows = await tx.$queryRaw<
-        { id: string; buyerId: string; auctionId: string; stripeCheckoutSessionId: string | null }[]
+        { id: string; buyerId: string; auctionId: string }[]
       >`
         UPDATE "Order" SET status = 'EXPIRED', "updatedAt" = (now() AT TIME ZONE 'UTC')
         WHERE id = ${orderId} AND status = 'PENDING' AND source = 'AUCTION'
           AND "payDeadline" IS NOT NULL AND "payDeadline" <= (now() AT TIME ZONE 'UTC')
-        RETURNING id, "buyerId", "auctionId", "stripeCheckoutSessionId"`;
+        RETURNING id, "buyerId", "auctionId"`;
       if (rows.length === 0) return null;
       const o = rows[0];
 
@@ -232,7 +246,6 @@ export async function expireAuctionOrder(orderId: string): Promise<StepResult> {
 
   pushNotifications(result.notifications);
   emitToAdmins("order", `Payment window expired: ${result.title}`);
-  if (result.order.stripeCheckoutSessionId) await expireCheckoutSession(result.order.stripeCheckoutSessionId);
   return { kind: "done" };
 }
 
@@ -266,17 +279,6 @@ async function notifyExpired(
 }
 
 /** Best effort: stop an open Checkout Session from being paid after the order is gone. */
-export async function expireCheckoutSession(sessionId: string) {
-  if (!process.env.STRIPE_SECRET_KEY) return;
-  try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.status === "open") await stripe.checkout.sessions.expire(sessionId);
-  } catch (err) {
-    console.error("[auction] could not expire checkout session", err);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Safety sweep (every 30s): catches anything a missed or failed job left behind.
 

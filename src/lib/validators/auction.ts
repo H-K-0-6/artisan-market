@@ -18,8 +18,8 @@ export const auctionSchema = z
         images: z.array(imageSchema).max(8, "Up to 8 photos"),
       })
       .nullable(),
-    startPriceCents: z.number().int().min(100, "Minimum start price is $1.00").max(10_000_000),
-    minIncrementCents: z.number().int().min(50, "Minimum increment is $0.50").max(1_000_000),
+    startPriceCents: z.number().int().min(1_000, "Minimum opening bid is BD 1.000").max(10_000_000),
+    minIncrementCents: z.number().int().min(100, "Minimum increment is BD 0.100").max(1_000_000),
     reservePriceCents: z.number().int().max(10_000_000).nullable(),
     startsAt: z.coerce.date(),
     endsAt: z.coerce.date(),

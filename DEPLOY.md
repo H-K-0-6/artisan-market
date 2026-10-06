@@ -35,24 +35,23 @@ fly secrets set \
   BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
   BETTER_AUTH_URL="https://<your-app>.fly.dev" \
   APP_URL="https://<your-app>.fly.dev" \
-  STRIPE_SECRET_KEY="sk_live_or_test_..." \
+  TAP_SECRET_KEY="sk_live_or_test_..." \
+  TAP_PUBLISHABLE_KEY="pk_live_or_test_..." \
+  TAP_MERCHANT_ID="..." \
   UPLOADTHING_TOKEN="..."
 ```
 
-### Stripe webhook
+### Tap Payments
 
-In the Stripe Dashboard → Developers → Webhooks, add an endpoint
-`https://<your-app>.fly.dev/api/webhooks/stripe` with these events:
+You don't need to set up a webhook in Tap's dashboard. Every charge carries its own
+`post.url` (`APP_URL/api/webhooks/tap`), and the app checks Tap's `hashstring`
+signature with `TAP_SECRET_KEY`. That means `APP_URL` must be the public https address.
 
-- `checkout.session.completed`
-- `checkout.session.async_payment_succeeded`
-- `checkout.session.expired`
-
-Then set its signing secret:
-
-```sh
-fly secrets set STRIPE_WEBHOOK_SECRET="whsec_..."
-```
+- Only switch to `sk_live_` / `pk_live_` keys once Tap has activated BENEFIT and cards
+  on your live account. Charges are in BHD.
+- **BenefitPay** only works on domains that Tap has registered for your merchant ID.
+  Ask Tap to add your app's domain (for example `<your-app>.fly.dev`).
+- `TAP_MERCHANT_ID` is the merchant ID Tap shows for your account. BenefitPay uses it.
 
 ## 2. Deploy
 

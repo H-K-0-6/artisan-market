@@ -49,17 +49,7 @@ if errorlevel 1 (
   echo App server already running.
 )
 
-rem --- 4. Stripe webhooks (optional, needs the Stripe CLI) ----------------------
-where stripe >nul 2>&1
-if not errorlevel 1 (
-  tasklist /fi "imagename eq stripe.exe" | find /i "stripe.exe" >nul
-  if errorlevel 1 (
-    echo Starting Stripe webhook forwarding...
-    start "Artisan Market - Stripe webhooks" /min cmd /k "set ARTISAN_WINDOW=stripe&& stripe listen --forward-to localhost:%PORT%/api/webhooks/stripe"
-  )
-)
-
-rem --- 5. Open the browser ------------------------------------------------------
+rem --- 4. Open the browser ------------------------------------------------------
 echo Opening %URL%
 start "" "%URL%"
 echo.

@@ -15,7 +15,7 @@ export function isTrustedUpload(img: { key: string; url: string }) {
 export const productSchema = z.object({
   title: z.string().trim().min(3, "Title is too short").max(120),
   description: z.string().trim().min(10, "Add a few more words").max(5000),
-  priceCents: z.number().int().min(100, "Minimum price is $1.00").max(10_000_000),
+  priceCents: z.number().int().min(1_000, "Minimum price is BD 1.000").max(10_000_000, "Maximum price is BD 10,000.000"),
   stock: z.number().int().min(0).max(10_000),
   categoryId: z.string().nullable(),
   status: z.enum(["DRAFT", "ACTIVE"]),

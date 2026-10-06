@@ -3,6 +3,7 @@ import { getBoss, QUEUES, setBoss } from "@/lib/boss";
 import { handleAuctionStart } from "@/server/jobs/auction-start";
 import { handleAuctionEnd } from "@/server/jobs/auction-end";
 import { handleOrderExpire } from "@/server/jobs/order-expire";
+import { handleOrderRelease } from "@/server/jobs/order-release";
 import { handleSweep } from "@/server/jobs/sweep";
 
 const SWEEP_SECONDS = 30;
@@ -24,6 +25,7 @@ export async function startJobs() {
   await boss.createQueue(QUEUES.auctionStart, lifecycle);
   await boss.createQueue(QUEUES.auctionEnd, lifecycle);
   await boss.createQueue(QUEUES.orderExpire, lifecycle);
+  await boss.createQueue(QUEUES.orderRelease, lifecycle);
   await boss.createQueue(QUEUES.sweep, { retryLimit: 0, expireInSeconds: 60 });
 
   // Poll every 0.5s so auctions start and close promptly after their time.
@@ -31,6 +33,7 @@ export async function startJobs() {
   await boss.work(QUEUES.auctionStart, fast, handleAuctionStart);
   await boss.work(QUEUES.auctionEnd, fast, handleAuctionEnd);
   await boss.work(QUEUES.orderExpire, { pollingIntervalSeconds: 5, batchSize: 10 }, handleOrderExpire);
+  await boss.work(QUEUES.orderRelease, { pollingIntervalSeconds: 5, batchSize: 10 }, handleOrderRelease);
   await boss.work(QUEUES.sweep, { pollingIntervalSeconds: 1 }, handleSweep);
 
   setBoss(boss);

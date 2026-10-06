@@ -22,7 +22,7 @@ export default async function MyOrderPage({ params }: { params: Promise<{ id: st
       {order.status === "PENDING" && order.source === "CART" && (
         <div className="grid gap-2 rounded-lg border p-4">
           <p className="text-sm text-muted-foreground">
-            This order is waiting for payment. Your items are held until the checkout session expires.
+            This order is waiting for payment. We hold your pieces for a short while; after that they go back on sale and return to your cart.
           </p>
           <PendingOrderActions orderId={order.id} />
         </div>

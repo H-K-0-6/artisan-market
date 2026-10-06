@@ -7,7 +7,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// Money is always stored as integer cents.
+// Money is stored as integers in the MINOR unit of the store currency (APP_CURRENCY,
+// see src/lib/money.ts). The store sells in Bahraini dinars, so every *Cents field
+// holds fils: 1 BHD = 1000 fils. (The field names predate the switch from USD.)
 
 enum ProductStatus {
   DRAFT
@@ -210,7 +212,7 @@ model Auction {
   artisan           ArtisanProfile @relation(fields: [artisanId], references: [id])
   status            AuctionStatus  @default(DRAFT)
   startPriceCents   Int
-  minIncrementCents Int            @default(100)
+  minIncrementCents Int            @default(500)
   reservePriceCents Int?
   reserveMet        Boolean        @default(false)
   currentPriceCents Int?
@@ -280,8 +282,15 @@ model Order {
   subtotalCents           Int
   commissionCents         Int
   totalCents              Int
-  stripeCheckoutSessionId String?     @unique
-  stripePaymentIntentId   String?
+  /// Latest Tap charge started for this order (a retry replaces it).
+  paymentChargeId         String?     @unique
+  /// The Tap charge that actually paid the order.
+  paidChargeId            String?
+  /// BENEFIT, BENEFITPAY or CARD, as reported by Tap for the paid charge.
+  paymentMethod           String?
+  /// Cart orders hold their reserved stock until this time, then a job releases
+  /// the order if it is still unpaid.
+  paymentHoldUntil        DateTime?
   payDeadline             DateTime?
   paidAt                  DateTime?
   shippingAddress         Json?
@@ -329,7 +338,9 @@ model Notification {
   @@index([userId, readAt])
 }
 
-model ProcessedStripeEvent {
+/// One row per (charge id, status) we have applied, so the redirect return, the
+/// webhook and the release job can all report the same charge without double effects.
+model ProcessedPaymentEvent {
   id          String   @id
   type        String
   processedAt DateTime @default(now())

@@ -33,7 +33,7 @@ async function main() {
   });
   if (products.length === 0) throw new Error("No active products to order");
 
-  const removed = await prisma.order.deleteMany({ where: { stripePaymentIntentId: { startsWith: "pi_demo_" } } });
+  const removed = await prisma.order.deleteMany({ where: { paidChargeId: { startsWith: "chg_demo_" } } });
 
   let created = 0;
   for (let daysAgo = 29; daysAgo >= 0; daysAgo--) {
@@ -58,8 +58,9 @@ async function main() {
           subtotalCents: subtotal,
           commissionCents: commission,
           totalCents: subtotal,
-          stripeCheckoutSessionId: `cs_demo_${paidAt.getTime()}_${n}`,
-          stripePaymentIntentId: `pi_demo_${paidAt.getTime()}_${n}`,
+          paymentChargeId: `chg_demo_${paidAt.getTime()}_${n}`,
+          paidChargeId: `chg_demo_${paidAt.getTime()}_${n}`,
+          paymentMethod: n % 3 === 0 ? "BENEFITPAY" : n % 3 === 1 ? "BENEFIT" : "CARD",
           paidAt,
           createdAt: new Date(paidAt.getTime() - 5 * 60_000),
           shippingAddress: ADDRESSES[buyerIdx % ADDRESSES.length],

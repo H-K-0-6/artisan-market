@@ -10,10 +10,11 @@ import { placeBid } from "../src/server/services/bid.service";
 const MIN = 60_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Amounts in fils (1 BHD = 1000 fils).
 const LOTS = [
-  { slug: "anagama-wood-fired-moon-jar", start: 30_000, increment: 1_000, opensIn: -20 * MIN, closesIn: 6 * 60 * MIN, reserve: 40_000, bids: 3 },
-  { slug: "heirloom-tapestry-wall-hanging", start: 24_000, increment: 1_000, opensIn: -5 * MIN, closesIn: 95 * MIN, reserve: null, bids: 2 },
-  { slug: "burl-maple-keepsake-bowl", start: 9_000, increment: 500, opensIn: 3 * 60 * MIN, closesIn: 27 * 60 * MIN, reserve: null, bids: 0 },
+  { slug: "anagama-wood-fired-moon-jar", start: 113_000, increment: 4_000, opensIn: -20 * MIN, closesIn: 6 * 60 * MIN, reserve: 150_000, bids: 3 },
+  { slug: "heirloom-tapestry-wall-hanging", start: 90_000, increment: 4_000, opensIn: -5 * MIN, closesIn: 95 * MIN, reserve: null, bids: 2 },
+  { slug: "burl-maple-keepsake-bowl", start: 34_000, increment: 2_000, opensIn: 3 * 60 * MIN, closesIn: 27 * 60 * MIN, reserve: null, bids: 0 },
 ] as const;
 
 async function main() {

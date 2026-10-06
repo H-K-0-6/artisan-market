@@ -2,7 +2,6 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { createNotification, pushNotifications } from "@/server/services/notification.service";
 import { emitToAdmins, emitToAuction } from "@/server/realtime/emit";
-import { expireCheckoutSession } from "@/server/services/auction-lifecycle";
 
 // Owned by the auctions workstream (Phases 4–5). The admin dashboard calls
 // cancelAuction(); its signature is fixed here so both can be built in parallel.
@@ -69,12 +68,12 @@ export async function cancelAuction(input: CancelAuctionInput): Promise<void> {
       }
 
       // An ENDED auction is cancellable only while its winner order is unpaid.
-      let cancelledOrder: { id: string; buyerId: string; stripeCheckoutSessionId: string | null } | null = null;
+      let cancelledOrder: { id: string; buyerId: string } | null = null;
       if (a.status === "ENDED") {
-        const orders = await tx.$queryRaw<{ id: string; buyerId: string; stripeCheckoutSessionId: string | null }[]>`
+        const orders = await tx.$queryRaw<{ id: string; buyerId: string }[]>`
           UPDATE "Order" SET status = 'CANCELLED', "updatedAt" = (now() AT TIME ZONE 'UTC')
           WHERE "auctionId" = ${a.id} AND status = 'PENDING'
-          RETURNING id, "buyerId", "stripeCheckoutSessionId"`;
+          RETURNING id, "buyerId"`;
         const anyOrder = await tx.order.findUnique({ where: { auctionId: a.id }, select: { status: true } });
         if (orders.length === 0 && anyOrder) {
           throw new AuctionError("NOT_CANCELLABLE", `The winner's order is already ${anyOrder.status.toLowerCase()}`);
@@ -133,7 +132,4 @@ export async function cancelAuction(input: CancelAuctionInput): Promise<void> {
   emitToAuction(input.auctionId, "auction:ended", { auctionId: input.auctionId, result: "CANCELLED", finalPriceCents: null });
   pushNotifications(result.notifications);
   emitToAdmins("auction", `Auction cancelled by ${result.who}: ${result.title}`);
-  if (result.cancelledOrder?.stripeCheckoutSessionId) {
-    await expireCheckoutSession(result.cancelledOrder.stripeCheckoutSessionId);
-  }
 }

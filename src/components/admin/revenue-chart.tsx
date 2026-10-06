@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { RevenuePoint } from "@/server/queries/admin";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatCompact } from "@/lib/money";
 import {
   ChartContainer,
   ChartLegend,
@@ -22,7 +22,6 @@ const config = {
 const dayLabel = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-const compactUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 
 /**
  * Daily gross revenue as a stacked bar: artisan payouts + platform commission = gross.
@@ -36,7 +35,7 @@ export function RevenueChart({ data }: { data: RevenuePoint[] }) {
       <BarChart data={rows} margin={{ left: 4, right: 4, top: 8 }} barCategoryGap={3}>
         <CartesianGrid vertical={false} strokeOpacity={0.5} />
         <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} tickFormatter={dayLabel} />
-        <YAxis tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => compactUsd.format(v / 100)} />
+        <YAxis tickLine={false} axisLine={false} width={56} tickFormatter={(v: number) => formatCompact(v)} />
         <ChartTooltip
           cursor={{ fillOpacity: 0.15 }}
           content={

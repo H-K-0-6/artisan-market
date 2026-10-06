@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveProduct } from "@/server/actions/product";
 import { UploadDropzone } from "@/lib/uploadthing";
-import { parseDollars } from "@/lib/money";
+import { parseAmount, toMajorString } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,7 +56,7 @@ export function ProductForm({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const priceCents = parseDollars(String(form.get("price")));
+    const priceCents = parseAmount(String(form.get("price")));
     if (priceCents === null) {
       setErrors({ priceCents: ["Enter a valid price"] });
       return;
@@ -102,12 +102,12 @@ export function ProductForm({
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="grid gap-2">
-          <Label htmlFor="price">Price (USD)</Label>
+          <Label htmlFor="price">Price (BD)</Label>
           <Input
             id="price"
             name="price"
             inputMode="decimal"
-            defaultValue={initial ? (initial.priceCents / 100).toFixed(2) : ""}
+            defaultValue={initial ? toMajorString(initial.priceCents) : ""}
             required
           />
           {err("priceCents")}
